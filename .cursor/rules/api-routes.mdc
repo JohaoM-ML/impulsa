@@ -1,0 +1,52 @@
+---
+description: Reglas para crear y modificar API Routes de Next.js en Impulsa
+globs: ["app/api/**/*.ts"]
+alwaysApply: true
+---
+
+# Reglas para API Routes
+
+## Estructura obligatoria (excepto /api/chatbot, ver chatbot-n8n.mdc)
+
+```typescript
+import { createServerClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createServerClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const { data: negocio } = await supabase
+      .from('negocios')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+    if (!negocio) {
+      return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
+    }
+
+    const { data, error } = await supabase
+      .from('tabla')
+      .select('*')
+      .eq('negocio_id', negocio.id)
+
+    if (error) throw error
+    return NextResponse.json(data)
+
+  } catch (error) {
+    console.error('[GET /api/recurso]', error)
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+```
+
+## Reglas
+- NUNCA aceptar negocio_id del body o query params
+- SIEMPRE validar que el recurso pertenece al negocio del usuario
+- SIEMPRE try/catch con catch genérico
+- Status: 200, 201, 400, 401, 404, 500
+- /api/chatbot es la excepción: valida N8N_WEBHOOK_SECRET, no sesión Supabase

@@ -1,0 +1,148 @@
+{
+  "name": "Impulsa - Twilio WhatsApp -> Chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "impulsa-twilio-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "twilio-inbound-webhook",
+      "name": "Twilio WhatsApp Inbound",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "notes": "Pegar la Production URL de este Webhook en Twilio Console > WhatsApp Sandbox/Senders > When a message comes in. Twilio manda From=whatsapp:+..., Body=texto."
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst from = body.From ?? body.from ?? body.WaId ?? '';\nconst message = body.Body ?? body.body ?? body.ButtonText ?? body.ButtonPayload ?? '';\nreturn [{ json: { telefono: from, mensaje: message, tipo: 'text', twilioFrom: from } }];"
+      },
+      "id": "normalizar-entrada",
+      "name": "Normalizar entrada Twilio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "notes": "Solo traduce el payload de Twilio al contrato de /api/chatbot. No contiene lógica de negocio."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_URL }}/api/chatbot",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-n8n-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"telefono\": \"{{ $json.telefono }}\",\n  \"mensaje\": \"{{ $json.mensaje }}\",\n  \"tipo\": \"{{ $json.tipo }}\"\n}",
+        "options": {}
+      },
+      "id": "llamar-api-chatbot",
+      "name": "Llamar a /api/chatbot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300],
+      "notes": "Toda la lógica vive en Next.js: resuelve negocio, llama a Claude, confirma acciones y escribe en Supabase."
+    },
+    {
+      "parameters": {
+        "jsCode": "function esc(s) {\n  return String(s ?? '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;')\n    .replace(/'/g, '&apos;');\n}\nconst botones = Array.isArray($json.botones) ? $json.botones : [];\nlet texto = $json.respuesta || 'Tuve un problema. Intenta de nuevo en un momento.';\nif (botones.length) {\n  texto += '\\n\\nResponde: ' + botones.map((b) => b.titulo).join(' / ');\n}\nconst twiml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>${esc(texto)}</Message></Response>`;\nreturn [{ json: { twiml } }];"
+      },
+      "id": "crear-twiml",
+      "name": "Crear respuesta TwiML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300],
+      "notes": "Convierte { respuesta, botones? } a TwiML. Si hay botones, los muestra como opciones de texto para Twilio WhatsApp."
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.twiml }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "responder-a-twilio",
+      "name": "Responder a Twilio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 300],
+      "notes": "Twilio recibe este XML y envía el WhatsApp de respuesta sin necesitar un nodo Twilio ni credenciales dentro del workflow."
+    }
+  ],
+  "connections": {
+    "Twilio WhatsApp Inbound": {
+      "main": [
+        [
+          {
+            "node": "Normalizar entrada Twilio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar entrada Twilio": {
+      "main": [
+        [
+          {
+            "node": "Llamar a /api/chatbot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Llamar a /api/chatbot": {
+      "main": [
+        [
+          {
+            "node": "Crear respuesta TwiML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear respuesta TwiML": {
+      "main": [
+        [
+          {
+            "node": "Responder a Twilio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "impulsaNotas": "Canal activo: Twilio. Workflow desplegado en n8n cloud (ID OPtPg15r4ASjgWKh). Ver n8n/README.md."
+  },
+  "tags": []
+}

@@ -1,0 +1,419 @@
+# IMPULSA — Reglas del proyecto para Cursor
+# Hackathon IDEATECH PYME 2026 | 3 días | 1 desarrollador | desde cero
+
+## Contexto del proyecto
+Impulsa es una PWA para micro y pequeñas empresas peruanas informales.
+El usuario típico es un bodeguero de ~45 años, sin conocimientos contables,
+que usa WhatsApp todos los días pero no conoce Excel.
+La app acompaña al dueño en: OPERAR (registrar ventas/inventario/gastos),
+ENTENDER (dashboard en su propio lenguaje) y CRECER (educación financiera + crédito).
+
+## Stack — no sugerir alternativas, usar exactamente esto
+- Framework:     Next.js 14, App Router, TypeScript estricto
+- Base de datos: Supabase (PostgreSQL + Auth + Storage)
+- Cliente DB:    @supabase/supabase-js — NO Prisma, NO Drizzle
+- Estilos:       Tailwind CSS + shadcn/ui
+- IA:            @anthropic-ai/sdk — modelo claude-sonnet-4-6 siempre
+- OCR:           Google Cloud Vision API (DOCUMENT_TEXT_DETECTION)
+- WhatsApp:      Twilio (sandbox/producción) + n8n webhook + TwiML
+- Orquestación:  n8n cloud — orquesta los flujos de WhatsApp, NO tiene lógica de negocio
+- Deploy:        Vercel
+- MCP activos:   Supabase, GitHub, n8n
+
+## Arquitectura de WhatsApp con n8n (importante)
+n8n es el "cartero", tu API de Next.js es el "cerebro". División estricta:
+
+```
+Usuario escribe en WhatsApp
+        ↓
+Twilio (WhatsApp API)
+        ↓
+n8n (Webhook POST)              ← recibe From/Body, normaliza payload
+        ↓
+HTTP Request → /api/chatbot     ← AQUÍ vive toda la lógica
+        ↓ (tu API consulta Supabase, llama a Claude, decide qué responder)
+n8n arma TwiML y responde XML
+        ↓
+Twilio envía el WhatsApp al usuario
+```
+
+### Reglas de la división n8n / Next.js
+- n8n NUNCA consulta Supabase directamente — siempre vía tu API
+- n8n NUNCA llama a Claude directamente — siempre vía tu API
+- Toda la inteligencia del chatbot vive en `/api/chatbot`
+- n8n solo hace: recibir webhook de WhatsApp → POST a tu API → enviar respuesta
+- El estado de conversaciones multi-paso se guarda en Supabase (tabla `conversaciones_wsp`),
+  tu API lo lee y escribe — n8n no maneja estado
+
+### Contrato de /api/chatbot (lo que n8n espera)
+```typescript
+// Request que n8n envía a tu API:
+POST /api/chatbot
+{
+  "telefono": "51987654321",
+  "mensaje": "vendí 3 sacos de arroz",
+  "tipo": "text"  // text | button_reply | image
+}
+
+// Response que tu API devuelve a n8n:
+{
+  "respuesta": "¿Confirmas la venta de 3 sacos de arroz por S/294?",
+  "botones": [                    // opcional, para confirmaciones
+    { "id": "confirmar_venta", "titulo": "Sí" },
+    { "id": "cancelar", "titulo": "No" }
+  ]
+}
+```
+
+## Sistema de 4 niveles del emprendedor (feature central)
+Según el nivel del dueño CAMBIA: vocabulario, complejidad de gráficos,
+funciones disponibles y contenido educativo.
+
+### Los 4 niveles
+| Nivel | Nombre      | XP requerido | Vocabulario ejemplo          |
+|-------|-------------|-------------|-------------------------------|
+| 1     | Bodeguero   | 0 - 99      | "cuánto ganaste hoy"         |
+| 2     | Emprendedor | 100 - 299   | "ganancia neta del mes"      |
+| 3     | Comerciante | 300 - 599   | "margen de utilidad"         |
+| 4     | Empresario  | 600+        | "margen de contribución"     |
+
+### Cómo sube de nivel
+- Onboarding quiz inicial: +20 a +60 XP según respuestas (detecta nivel previo)
+- Completar módulos educativos: +10 a +30 XP por módulo
+- La racha de días activos bonifica XP (implementar después del demo)
+
+### Vocabulario adaptativo — patrón central
+Usar siempre `vocab()` de `lib/vocabulario.ts`. NUNCA hardcodear términos financieros.
+
+```typescript
+export const VOCABULARIO = {
+  ganancia: {
+    1: 'cuánto ganaste',
+    2: 'ganancia neta',
+    3: 'margen de utilidad',
+    4: 'margen de contribución',
+  },
+  flujo_caja: {
+    1: 'cuánto dinero tienes',
+    2: 'saldo disponible',
+    3: 'flujo de caja',
+    4: 'flujo de caja operativo',
+  },
+  inventario_bajo: {
+    1: 'se te está acabando',
+    2: 'stock bajo',
+    3: 'inventario crítico',
+    4: 'punto de reorden alcanzado',
+  },
+  deuda_cobrar: {
+    1: 'te deben',
+    2: 'cuentas por cobrar',
+    3: 'cartera de clientes',
+    4: 'cuentas por cobrar corrientes',
+  },
+  gasto: {
+    1: 'lo que gastas',
+    2: 'tus gastos',
+    3: 'egresos',
+    4: 'costos operativos',
+  },
+} as const
+
+export type VocabKey = keyof typeof VOCABULARIO
+export type Nivel = 1 | 2 | 3 | 4
+
+export function vocab(key: VocabKey, nivel: Nivel): string {
+  return VOCABULARIO[key][nivel]
+}
+```
+
+### Gráficos por nivel
+- Nivel 1: barras simples de totales, colores vivos, sin ejes técnicos
+- Nivel 2: + comparativa semanal, + línea de tendencia
+- Nivel 3: + análisis por categoría, + rentabilidad por producto
+- Nivel 4: + proyecciones, + dashboard completo tipo CFO
+
+### Features desbloqueadas por nivel
+- Nivel 1: ventas, inventario básico, deudas simples
+- Nivel 2: + gastos categorizados, + PymScore
+- Nivel 3: + reportes, + análisis de rentabilidad
+- Nivel 4: + expediente financiero, + puente al crédito
+
+## Schema de base de datos completo
+
+```sql
+-- ═══ CORE ═══
+create table negocios (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid references auth.users(id) on delete cascade,
+  nombre       text not null,
+  rubro        text,
+  telefono_wsp text unique,
+  creado_en    timestamptz default now()
+);
+
+create table productos (
+  id             uuid primary key default gen_random_uuid(),
+  negocio_id     uuid references negocios(id) on delete cascade,
+  nombre         text not null,
+  unidad         text default 'unidades',
+  stock_actual   numeric default 0,
+  stock_minimo   numeric default 5,
+  precio_compra  numeric,
+  precio_venta   numeric,
+  codigo_barras  text,
+  activo         boolean default true,
+  actualizado_en timestamptz default now()
+);
+
+create table clientes (
+  id          uuid primary key default gen_random_uuid(),
+  negocio_id  uuid references negocios(id) on delete cascade,
+  nombre      text not null,
+  telefono    text,
+  deuda_total numeric default 0,
+  creado_en   timestamptz default now()
+);
+
+create table proveedores (
+  id         uuid primary key default gen_random_uuid(),
+  negocio_id uuid references negocios(id) on delete cascade,
+  nombre     text not null,
+  telefono   text
+);
+
+create table ventas (
+  id          uuid primary key default gen_random_uuid(),
+  negocio_id  uuid references negocios(id) on delete cascade,
+  cliente_id  uuid references clientes(id),
+  total       numeric not null,
+  canal       text default 'presencial',
+  estado      text default 'pagado',
+  notas       text,
+  creado_en   timestamptz default now()
+);
+
+create table items_venta (
+  id          uuid primary key default gen_random_uuid(),
+  venta_id    uuid references ventas(id) on delete cascade,
+  producto_id uuid references productos(id),
+  nombre_item text not null,
+  cantidad    numeric not null,
+  precio_unit numeric not null,
+  subtotal    numeric not null
+);
+
+create table gastos (
+  id           uuid primary key default gen_random_uuid(),
+  negocio_id   uuid references negocios(id) on delete cascade,
+  descripcion  text not null,
+  monto        numeric not null,
+  categoria    text,
+  proveedor_id uuid references proveedores(id),
+  creado_en    timestamptz default now()
+);
+
+create table guias_proveedor (
+  id           uuid primary key default gen_random_uuid(),
+  negocio_id   uuid references negocios(id) on delete cascade,
+  proveedor_id uuid references proveedores(id),
+  imagen_url   text,
+  texto_raw    text,
+  total        numeric,
+  estado       text default 'procesada',
+  creado_en    timestamptz default now()
+);
+
+create table pym_scores (
+  id            uuid primary key default gen_random_uuid(),
+  negocio_id    uuid references negocios(id) on delete cascade,
+  semana        date not null,
+  score         integer not null,
+  ventas_semana numeric,
+  gastos_semana numeric,
+  margen        numeric,
+  explicacion   text,
+  creado_en     timestamptz default now()
+);
+
+-- Estado de conversaciones de WhatsApp (flujos multi-paso)
+-- n8n NO toca esta tabla, solo /api/chatbot la lee y escribe
+create table conversaciones_wsp (
+  id             uuid primary key default gen_random_uuid(),
+  negocio_id     uuid references negocios(id) on delete cascade,
+  telefono       text not null,
+  estado_flujo   text default 'idle',   -- idle | esperando_confirmacion_venta | etc
+  contexto       jsonb default '{}',    -- datos del flujo en curso
+  ultimo_mensaje timestamptz default now()
+);
+
+-- ═══ SISTEMA DE NIVELES ═══
+create table progreso_usuario (
+  id                    uuid primary key default gen_random_uuid(),
+  user_id               uuid references auth.users(id) on delete cascade unique,
+  negocio_id            uuid references negocios(id),
+  nivel                 integer default 1 check (nivel between 1 and 4),
+  xp_total              integer default 0,
+  onboarding_completado boolean default false,
+  ultimo_acceso         date default current_date,
+  creado_en             timestamptz default now()
+);
+
+create table modulos_educativos (
+  id            uuid primary key default gen_random_uuid(),
+  titulo        text not null,
+  contenido     text not null,
+  nivel_minimo  integer default 1,
+  nivel_maximo  integer default 4,
+  xp_recompensa integer default 10,
+  categoria     text,
+  orden         integer,
+  activo        boolean default true
+);
+
+create table progreso_modulos (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid references auth.users(id),
+  modulo_id     uuid references modulos_educativos(id),
+  completado    boolean default false,
+  completado_en timestamptz,
+  xp_ganado     integer default 0,
+  unique(user_id, modulo_id)
+);
+
+create table preguntas_onboarding (
+  id       uuid primary key default gen_random_uuid(),
+  pregunta text not null,
+  opciones jsonb not null,
+  orden    integer,
+  activo   boolean default true
+);
+
+create table respuestas_onboarding (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid references auth.users(id),
+  pregunta_id uuid references preguntas_onboarding(id),
+  respuesta   text,
+  xp_ganado   integer default 0,
+  creado_en   timestamptz default now()
+);
+```
+
+## Estructura de carpetas
+```
+impulsa/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/page.tsx
+│   │   └── registro/page.tsx       # rubro como Select + contraseña segura
+│   ├── (dashboard)/                # 5 secciones del nav
+│   │   ├── layout.tsx              # monta DashboardShell (TopBar + NavInferior)
+│   │   ├── inicio/page.tsx
+│   │   ├── registrar/page.tsx      # tabs Foto/Voz/Manual + toggle Venta/Compra
+│   │   ├── mi-negocio/page.tsx     # tabs Flujo/Inventario/Top/Fiado
+│   │   ├── pym-score/page.tsx      # score circular + componentes + evolución
+│   │   ├── aprender/page.tsx       # nivel actual + módulos + examen
+│   │   └── (legacy en _legacy/: ventas/, inventario/, gastos/, clientes/)
+│   ├── onboarding/page.tsx         # quiz + resultado del agente Claude
+│   └── api/
+│       ├── chatbot/route.ts        # CEREBRO del chatbot — n8n llama aquí
+│       ├── ia/{extraer-foto, transcribir, estructurar}/route.ts  # IA del producto
+│       ├── mi-negocio/{flujo, top}/route.ts
+│       ├── ventas/route.ts
+│       ├── inventario/{route.ts, bulk/route.ts}
+│       ├── proveedores/route.ts
+│       ├── modulos/route.ts
+│       ├── gastos/route.ts · clientes/route.ts · ocr/route.ts
+│       ├── pym-score/route.ts · nivel/route.ts · onboarding/route.ts
+│       ├── dashboard/route.ts · negocio/route.ts · seed/route.ts
+├── components/
+│   ├── layout/                     # DashboardShell, TopBar, NavInferior, PWARegister
+│   ├── registrar/                  # CamaraGuia, ConfirmacionOCR, GrabadoraVoz
+│   ├── pym-score/                  # PymScoreCircular
+│   ├── shared/                     # TextoFormateado, CelebracionNivel
+│   ├── nivel/{BarraXP.tsx, InsigniaSubida.tsx}
+│   ├── dashboard/{TarjetaResumen.tsx, GraficoAdaptativo.tsx}
+│   ├── estados/                    # EstadoCargando, EstadoError, EstadoVacio
+│   └── ui/                         # shadcn/ui
+├── lib/
+│   ├── supabase/{client.ts, server.ts}
+│   ├── vocabulario.ts · nivel.ts · password.ts · pym-score.ts
+│   ├── claude.ts                   # foto + estructurar texto + explicación score
+│   ├── openai.ts                   # transcripción de voz (Whisper)
+│   ├── agente/categorizacion.ts    # agente Claude para asignar nivel
+│   ├── chatbot/                    # lógica del chatbot (fase n8n/WhatsApp)
+│   └── vision.ts
+├── hooks/{useNivel.ts, useNegocio.ts}
+├── types/index.ts
+├── public/manifest.json
+├── n8n/
+│   ├── impulsa-twilio-whatsapp-twiml.json   # workflow activo (Twilio)
+│   ├── README.md
+│   └── _legacy/flujo-meta-cloud-api.json    # referencia Meta Cloud API
+└── supabase/migrations/
+    ├── 001_schema_inicial.sql
+    ├── 002_registrar_venta_rpc.sql       # RPC atómica de venta + descuento de stock
+    └── 003_rediseno.sql                   # categoria, proveedores.deuda_total, componentes, perfil_ia
+```
+
+## Variables de entorno
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+ANTHROPIC_API_KEY=          # Claude: categorización de nivel, foto, estructurar texto, PymScore
+OPENAI_API_KEY=             # solo transcripción de voz (Whisper)
+GOOGLE_VISION_API_KEY=
+N8N_WEBHOOK_SECRET=          # secreto compartido: n8n lo manda, tu API lo valida
+NEXT_PUBLIC_APP_URL=
+N8N_API_URL=                 # MCP Cursor / admin n8n
+N8N_API_KEY=
+TWILIO_ACCOUNT_SID=          # Twilio Console (no va en workflow n8n)
+TWILIO_AUTH_TOKEN=
+TWILIO_WHATSAPP_FROM=        # whatsapp:+14155238886 (sandbox)
+```
+
+## Convenciones de código
+
+### TypeScript
+- Tipado estricto, nunca `any`. Tipos en `types/index.ts`.
+- Funciones de servidor: async/await + try/catch siempre.
+- Validar input en API routes antes de tocar la DB.
+
+### Next.js App Router
+- Componentes de servidor por defecto. `'use client'` solo con estado/eventos.
+- API routes devuelven `NextResponse.json()` con status code explícito.
+- Middleware protege todo bajo `(dashboard)`.
+
+### Supabase
+- API routes: `createServerClient`. Componentes cliente: `createBrowserClient`.
+- SIEMPRE filtrar por `negocio_id`. SERVICE_ROLE_KEY solo en server.
+
+### Chatbot (/api/chatbot)
+- Esta route es la única que valida `N8N_WEBHOOK_SECRET` en vez de sesión Supabase
+- Identifica el negocio por `telefono` (campo `telefono_wsp` en tabla negocios)
+- Lee y escribe estado en `conversaciones_wsp` para flujos multi-paso
+- Respuestas máximo 3 líneas, tono WhatsApp
+- Para acciones (registrar venta) devolver botones de confirmación, no ejecutar directo
+- Devolver el contrato exacto: { respuesta, botones? }
+
+### UI — mobile first
+- Diseñar para 390px. Botones min 48px. Lenguaje del nivel base + vocab().
+- Loading + error + empty state en cada componente.
+- Confirmación post-OCR obligatoria.
+
+## Prioridad de desarrollo (3 días)
+1. Setup: Next.js + Supabase + Auth + estructura
+2. Módulo de ventas (registro manual)
+3. Dashboard adaptativo básico
+4. Onboarding quiz + sistema de niveles
+5. OCR (foto guía → inventario)
+6. /api/chatbot + flujo n8n de WhatsApp
+7. PymScore
+8. Pulir demo + deploy
+
+## Lo que NO hacer
+- No tests (hackathon de 3 días)
+- No paginación todavía
+- No Instagram (roadmap v2)
+- No poner lógica de negocio en n8n — solo enrutado

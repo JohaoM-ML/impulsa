@@ -1,0 +1,58 @@
+---
+description: Reglas y patrones específicos para el sistema de 4 niveles del emprendedor
+globs: ["lib/nivel.ts", "lib/vocabulario.ts", "hooks/useNivel.ts", "app/onboarding/**", "components/nivel/**"]
+alwaysApply: false
+---
+
+# Sistema de 4 niveles
+
+## Umbrales de XP
+| Nivel | Nombre      | XP min | XP max |
+|-------|-------------|--------|--------|
+| 1     | Bodeguero   | 0      | 99     |
+| 2     | Emprendedor | 100    | 299    |
+| 3     | Comerciante | 300    | 599    |
+| 4     | Empresario  | 600    | inf    |
+
+## Función central
+```typescript
+export function calcularNivel(xp: number): Nivel {
+  if (xp >= 600) return 4
+  if (xp >= 300) return 3
+  if (xp >= 100) return 2
+  return 1
+}
+
+export function xpParaSiguienteNivel(xp: number): number {
+  if (xp >= 600) return 0
+  if (xp >= 300) return 600 - xp
+  if (xp >= 100) return 300 - xp
+  return 100 - xp
+}
+
+export function porcentajeNivelActual(xp: number): number {
+  if (xp >= 600) return 100
+  if (xp >= 300) return ((xp - 300) / 300) * 100
+  if (xp >= 100) return ((xp - 100) / 200) * 100
+  return (xp / 100) * 100
+}
+```
+
+## Onboarding quiz
+Detecta conocimiento previo y da XP inicial. Máximo 5 preguntas, máximo 60 XP total
+(no puede saltar al nivel 2 solo con el quiz). Preguntar hábitos, no teoría.
+
+## Hook useNivel
+```typescript
+export function useNivel() {
+  const [progreso, setProgreso] = useState<ProgresoUsuario | null>(null)
+  const nivel = progreso ? calcularNivel(progreso.xp_total) : 1
+  const v = (key: VocabKey) => vocab(key, nivel)
+  return { nivel, vocab: v, xp: progreso?.xp_total ?? 0, progreso }
+}
+```
+
+## Al subir de nivel
+1. Mostrar InsigniaSubida con animación
+2. Explicar qué se desbloquea
+3. Mostrar el primer módulo educativo del nuevo nivel

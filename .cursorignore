@@ -1,0 +1,42 @@
+# .cursorignore — Impulsa
+
+# Variables de entorno — NUNCA indexar
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+dist/
+build/
+
+# Caché
+.cache/
+.turbo/
+*.tsbuildinfo
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Archivos grandes
+public/fonts/
+*.woff
+*.woff2
+*.ttf
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+.idea/

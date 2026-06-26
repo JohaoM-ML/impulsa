@@ -1,0 +1,113 @@
+---
+description: Reglas para el chatbot de WhatsApp y su integración con n8n
+globs: ["app/api/chatbot/**/*.ts", "lib/chatbot/**/*.ts"]
+alwaysApply: false
+---
+
+# Chatbot de WhatsApp + n8n
+
+## La regla de oro
+n8n NO tiene lógica. Toda la inteligencia vive aquí, en `/api/chatbot` y `lib/chatbot/`.
+n8n solo: recibe mensaje → POST a esta API → envía la respuesta.
+
+## /api/chatbot — estructura especial
+Esta route es distinta a las demás. NO usa sesión de Supabase.
+
+```typescript
+// app/api/chatbot/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { procesarMensaje } from '@/lib/chatbot/procesarMensaje'
+
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Validar que viene de n8n (no auth de usuario)
+    const secret = request.headers.get('x-n8n-secret')
+    if (secret !== process.env.N8N_WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // 2. Leer el contrato
+    const { telefono, mensaje, tipo } = await request.json()
+
+    // 3. Identificar el negocio por su teléfono de WhatsApp
+    const supabase = createServiceClient()  // service client: sin sesión de usuario
+    const { data: negocio } = await supabase
+      .from('negocios')
+      .select('*')
+      .eq('telefono_wsp', telefono)
+      .maybeSingle()
+
+    if (!negocio) {
+      return NextResponse.json({
+        respuesta: 'Tu número no está registrado en Impulsa. Regístrate en la app primero.'
+      })
+    }
+
+    // 4. Procesar — aquí vive toda la lógica
+    const resultado = await procesarMensaje(negocio, telefono, mensaje, tipo)
+
+    // 5. Devolver el contrato exacto que n8n espera
+    return NextResponse.json(resultado)  // { respuesta, botones? }
+
+  } catch (error) {
+    console.error('[POST /api/chatbot]', error)
+    return NextResponse.json({
+      respuesta: 'Tuve un problema. Intenta de nuevo en un momento.'
+    })
+  }
+}
+```
+
+## Contrato con n8n (no cambiar sin actualizar el flujo n8n)
+```typescript
+// n8n → tu API
+type RequestChatbot = {
+  telefono: string   // "51987654321"
+  mensaje: string    // texto del usuario o id del botón presionado
+  tipo: 'text' | 'button_reply' | 'image'
+}
+
+// tu API → n8n
+type ResponseChatbot = {
+  respuesta: string
+  botones?: { id: string; titulo: string }[]   // máximo 3 botones (límite de WhatsApp)
+}
+```
+
+## Flujos multi-paso — máquina de estados
+El estado vive en `conversaciones_wsp.estado_flujo`. Ejemplo de venta:
+
+```typescript
+// lib/chatbot/flujos.ts
+// Estados posibles: 'idle' | 'esperando_confirmacion_venta'
+
+// Mensaje "vendí 3 arroz" en estado idle:
+//   → detectar intención: registrar_venta
+//   → guardar contexto: { producto: 'arroz', cantidad: 3, total: 294 }
+//   → estado_flujo = 'esperando_confirmacion_venta'
+//   → responder con botones Sí/No
+
+// Botón "confirmar_venta" en estado esperando_confirmacion_venta:
+//   → leer contexto guardado
+//   → registrar la venta en la DB
+//   → estado_flujo = 'idle', limpiar contexto
+//   → responder "✅ Venta registrada"
+```
+
+## Respuestas del chatbot
+- Máximo 3 líneas (es WhatsApp, no email)
+- Tono informal pero claro, como hablaría un asistente amigable
+- Adaptar vocabulario al nivel del negocio (vocab con el nivel del dueño)
+- Acciones que modifican datos → SIEMPRE confirmar con botones primero
+- Nunca devolver JSON ni términos técnicos al usuario final
+
+## El flujo n8n (Twilio — activo)
+1. Webhook POST (`/webhook/impulsa-twilio-whatsapp`) ← Twilio envía `From` y `Body`
+2. Code → normaliza al contrato `{ telefono, mensaje, tipo }`
+3. HTTP Request → POST `{APP_URL}/api/chatbot`, header `x-n8n-secret`
+4. Code → convierte `{ respuesta, botones? }` a TwiML
+5. Respond to Webhook → XML a Twilio
+
+Exportar/ versionar en `n8n/impulsa-twilio-whatsapp-twiml.json`. Setup completo: `n8n/README.md`.
+Flujo Meta legacy: `n8n/_legacy/flujo-meta-cloud-api.json`.

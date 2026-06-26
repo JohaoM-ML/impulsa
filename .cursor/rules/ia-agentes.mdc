@@ -1,0 +1,32 @@
+---
+description: Patrones para las funciones de IA del producto (Claude + OpenAI) y sus rutas
+globs: ["lib/claude.ts", "lib/openai.ts", "lib/agente/**/*.ts", "app/api/ia/**/*.ts"]
+alwaysApply: false
+---
+
+# IA en el producto (Claude + OpenAI)
+
+## Regla de oro
+Toda llamada a un proveedor de IA vive en el servidor (`lib/` + `app/api/ia/*`).
+El cliente NUNCA llama a Anthropic ni a OpenAI directamente. Las claves
+(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) son solo server-side.
+
+## División de responsabilidades
+- **Claude** (`@anthropic-ai/sdk`, modelo `claude-sonnet-4-6`): texto e imagen.
+  - `lib/claude.ts > extraerItemsDeImagen(imagenDataUrl, tipo)` — foto -> productos.
+  - `lib/claude.ts > estructurarMovimiento(texto, tipo, inventario)` — texto -> productos.
+  - `lib/agente/categorizacion.ts > categorizarNivel()` — onboarding -> nivel + explicación.
+- **OpenAI** (`openai`): SOLO transcripción de audio (Claude no acepta audio).
+  - `lib/openai.ts > transcribirAudio(buffer)` — Whisper, español.
+
+## Flujo de voz (no cambiar el orden)
+navegador graba audio -> `POST /api/ia/transcribir` (OpenAI) -> texto
+-> `POST /api/ia/estructurar` (Claude, con inventario) -> productos -> confirmación -> guardar.
+
+## Reglas obligatorias
+- Las rutas `app/api/ia/*` validan sesión con `getNegocioFromSession` (NO el secreto de n8n).
+- Siempre parsear el JSON del modelo de forma defensiva (quitar fences, buscar `{`/`[`).
+- Siempre tener un fallback si falta la API key o falla el parseo (no romper la UX).
+- Acciones que crean datos (venta/compra) pasan SIEMPRE por una pantalla de confirmación
+  (`ConfirmacionOCR`) antes de escribir en la base.
+- Nunca devolver JSON crudo al usuario final.

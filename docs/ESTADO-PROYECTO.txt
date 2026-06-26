@@ -1,0 +1,150 @@
+================================================================================
+  IMPULSA — ESTADO DEL PROYECTO
+  Actualizado: 2026-06-26 16:26
+  Hackathon IDEATECH PYME 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. RESUMEN
+--------------------------------------------------------------------------------
+PWA mobile-first para bodegas / pymes informales del Perú.
+Objetivo: que el dueño OPERE (registrar ventas, inventario, gastos),
+ENTIENDA (dashboard y PymScore en su propio lenguaje) y CREZCA
+(educacion financiera + acceso a credito).
+
+Stack: Next.js 14 (App Router) + TypeScript estricto + Supabase
+(PostgreSQL + Auth + RLS) + Claude (claude-sonnet-4-6) + OpenAI Whisper
+ + [n8n (WhatsApp, solo orquestacion) + Vercel.] esto ultimo aun no esta hecho
+
+Estado general: FUNCIONAL EN LOCAL. Build y lint en verde.
+El servidor de desarrollo levanta en http://localhost:3000
+
+--------------------------------------------------------------------------------
+2. CALIDAD / SALUD DEL CODIGO
+--------------------------------------------------------------------------------
+[OK]  npx tsc --noEmit ........ sin errores
+[OK]  npm run lint ............ sin warnings ni errores
+[OK]  npm run build ........... compila (warnings esperados de Supabase edge
+                                 runtime y rutas dinamicas por uso de cookies)
+[OK]  npm run dev ............. arranca en ~3s
+
+--------------------------------------------------------------------------------
+3. NAVEGACION (5 secciones del nav inferior)
+--------------------------------------------------------------------------------
+/inicio       Dashboard del dia: resumen, PymScore, accesos rapidos
+/registrar    Tabs Foto / Voz / Manual + toggle Venta/Compra
+/mi-negocio   Tabs Flujo / Inventario / Top / Fiado
+/pym-score    Score, componentes y evolucion (nivel 2+)
+/aprender     Modulos por nivel + examen
+
+Auth:        /login, /registro
+Onboarding:  /onboarding (quiz + agente Claude que asigna nivel/XP)
+Raiz /:      redirige a /login o /inicio segun sesion
+
+Rutas legacy (redirigen automaticamente, codigo en app/(dashboard)/_legacy/):
+  /ventas, /ventas/nueva       -> /registrar
+  /inventario, /nueva-guia     -> /mi-negocio | /registrar
+  /gastos                      -> /registrar
+  /clientes                    -> /mi-negocio
+
+--------------------------------------------------------------------------------
+4. API ROUTES (21 rutas)
+--------------------------------------------------------------------------------
+Negocio/dashboard:  /api/negocio  /api/dashboard  /api/seed
+Operaciones:        /api/ventas  /api/inventario  /api/inventario/bulk
+                    /api/gastos  /api/clientes  /api/proveedores
+                    /api/mi-negocio/flujo  /api/mi-negocio/top
+IA (server-side):   /api/ia/extraer-foto  /api/ia/transcribir
+                    /api/ia/estructurar  /api/ocr
+Niveles/score:      /api/nivel  /api/onboarding  /api/modulos
+                    /api/examen  /api/pym-score
+Chatbot:            /api/chatbot  (STUB funcional, ver seccion 6)
+
+Regla: todas (excepto /api/chatbot) usan sesion Supabase y sacan negocio_id
+de la sesion, NUNCA del body.
+
+--------------------------------------------------------------------------------
+5. BASE DE DATOS (Supabase) — migraciones
+--------------------------------------------------------------------------------
+001_schema_inicial.sql ....... core: negocios, productos, ventas, items_venta,
+                               gastos, clientes, proveedores, niveles,
+                               pym_scores + RLS
+002_registrar_venta_rpc.sql .. RPC atomica venta + descuento de stock
+003_rediseno.sql ............. categorias, deuda proveedores, componentes
+                               PymScore, perfil IA
+004_examen.sql ............... banco de preguntas + intentos + seed
+005_conversaciones_wsp.sql ... estado del chatbot WhatsApp (estado_flujo,
+                               contexto, historial) + RLS
+
+--------------------------------------------------------------------------------
+6. ULTIMOS CAMBIOS APLICADOS
+--------------------------------------------------------------------------------
+[HECHO] Reorganizacion de carpetas:
+        components/ agrupado por dominio (layout, registrar, pym-score,
+        shared, nivel, dashboard, estados, ui).
+        Rutas viejas movidas a app/(dashboard)/_legacy/ + redirects en
+        next.config.js. Middleware actualizado.
+
+[HECHO] README.md detallado + docs/ (ESTRUCTURA.md, ARCHIVOS-GENERADOS.md)
+        + supabase/README.md.
+
+[HECHO] ARQ-01 + ASESOR: app/api/chatbot/route.ts + lib/chatbot/ COMPLETO.
+        - Valida header x-n8n-secret contra N8N_WEBHOOK_SECRET (401 si falla)
+        - Usa createServiceClient() (sin sesion de usuario)
+        - Resuelve negocio por telefono_wsp
+        - lib/chatbot/prompt.ts: system prompt del asesor
+        - lib/chatbot/contexto.ts: nivel + resumen real del negocio +
+          estado de conversacion (conversaciones_wsp)
+        - lib/chatbot/acciones.ts: ejecuta venta/gasto/compra/fiado
+          (service role, siempre por negocio_id) + recalcula PymScore
+        - lib/chatbot/procesarMensaje.ts: orquesta contexto + Claude +
+          maquina de confirmacion con botones; solo escribe tras "si"
+        - Salida JSON { respuesta, botones?, accion? }
+
+[HECHO] CAL-02: extraido lib/finanzas.ts -> calcularGanancia(ventas, gastos),
+        usado en mi-negocio (TabFlujo).
+
+[HECHO] FE-04: components/nivel/InsigniaSubida.tsx ahora usa vocab() del
+        nivel destino en beneficios/mensajes.
+
+[HECHO] UI: boton "cerrar sesion" agregado en components/layout/TopBar.tsx
+        (antes no existia forma de salir de la sesion).
+
+[HECHO] MCP n8n configurado global en ~/.cursor/mcp.json
+        (URL impulsa12121.app.n8n.cloud + token). Requiere reiniciar Cursor.
+
+[HECHO] Workflow n8n Twilio cargado y ACTIVO en impulsa12121.app.n8n.cloud
+        (ID OPtPg15r4ASjgWKh). Webhook produccion:
+        https://impulsa12121.app.n8n.cloud/webhook/impulsa-twilio-whatsapp
+        Prueba interna del workflow: OK (TwiML generado).
+
+--------------------------------------------------------------------------------
+7. PENDIENTES / PROXIMOS PASOS
+--------------------------------------------------------------------------------
+[ ] Ejecutar migracion 005_conversaciones_wsp.sql en Supabase.
+[ ] Probar el asesor end-to-end (texto + botones) con ANTHROPIC_API_KEY real.
+[ ] Configurar en n8n: APP_URL + N8N_WEBHOOK_SECRET (mismo valor que .env.local).
+[ ] Pegar webhook de n8n en Twilio Console (WhatsApp Sandbox → When a message comes in).
+[ ] Crear cuenta demo y validar seed de datos (/api/seed) end-to-end.
+[ ] Verificar variables de entorno en .env.local (Supabase, Anthropic,
+    OpenAI, Google Vision, N8N_WEBHOOK_SECRET).
+[ ] Deploy en Vercel + ejecutar migraciones en Supabase de produccion.
+
+--------------------------------------------------------------------------------
+8. DIRECCION DE PRODUCTO (propuesta de diferenciacion)
+--------------------------------------------------------------------------------
+No competir como app contable (clon de Treinta). Posicionar Impulsa como
+"copiloto financiero por WhatsApp" que convierte el desorden diario en un
+historial financiero (PymScore) para acceder a credito responsable.
+Detalle completo en: docs/propuesta-innovacion-impulsa.docx
+
+--------------------------------------------------------------------------------
+9. COMO CORRER EL PROYECTO
+--------------------------------------------------------------------------------
+  npm install
+  copiar .env.example a .env.local y completar credenciales
+  ejecutar las 4 migraciones SQL en Supabase
+  npm run dev   ->  http://localhost:3000
+
+
+================================================================================

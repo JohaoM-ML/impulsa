@@ -1,0 +1,30 @@
+---
+description: Reglas de seguridad y convenciones para toda interacción con Supabase/PostgreSQL
+globs: ["app/api/**/*.ts", "lib/**/*.ts", "hooks/**/*.ts"]
+alwaysApply: true
+---
+
+# Reglas de base de datos
+
+## Seguridad — no se negocia
+1. Siempre filtrar por negocio_id
+   .from('ventas').select('*').eq('negocio_id', negocio.id)
+2. SUPABASE_SERVICE_ROLE_KEY solo en server (lib/supabase/server.ts o API routes)
+3. Verificar pertenencia antes de UPDATE o DELETE
+
+## Clientes de Supabase
+- API routes con sesión de usuario: createServerClient
+- /api/chatbot (sin usuario, identifica por teléfono): createServiceClient
+- Componentes 'use client': createBrowserClient
+
+## Convenciones
+- Máximo 3 queries por request, usar joins
+- .single() para un resultado exacto, .maybeSingle() si puede no existir
+- Siempre destructurar { data, error } y verificar error
+
+## Tablas del sistema de niveles
+progreso_usuario, progreso_modulos, respuestas_onboarding tienen user_id (no negocio_id).
+Filtrar por user_id en esas tablas.
+
+## Tabla conversaciones_wsp
+Solo /api/chatbot la toca. Identifica el negocio por telefono_wsp, no por sesión.

@@ -1,0 +1,59 @@
+---
+description: Reglas para crear componentes React en Impulsa — mobile-first y sistema de niveles
+globs: ["components/**/*.tsx", "app/**/*.tsx"]
+alwaysApply: true
+---
+
+# Reglas para componentes
+
+## Estructura de toda página
+```tsx
+'use client'
+import { useNivel } from '@/hooks/useNivel'
+
+export default function MiPagina() {
+  const { nivel, vocab } = useNivel()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState(null)
+
+  if (loading) return <EstadoCargando />
+  if (error)   return <EstadoError mensaje={error} />
+  if (!data)   return <EstadoVacio />
+
+  return <div><h1>{vocab('ganancia')}</h1></div>
+}
+```
+
+## Vocabulario adaptativo — regla más importante
+```tsx
+// CORRECTO
+<label>{vocab('gasto')}</label>
+// NUNCA hardcodear
+<label>Margen de contribución</label>
+```
+
+## Mobile-first absoluto
+- 390px de ancho, pulgar como cursor
+- Botones min-h-[48px]
+- Inputs text-base (evita zoom en iOS)
+- Nav inferior fija, no sidebar
+
+## Estructura del dashboard (rediseño)
+- 5 secciones en el nav: Inicio, Registrar, Mi Negocio, PymScore, Aprender.
+- `DashboardShell` ya monta `TopBar` (logo + badge de nivel) y `NavInferior`. No agregues otra barra superior por página; cada página empieza con su `<h1>` y contenido.
+- Páginas con múltiples vistas usan `components/ui/tabs.tsx` (Mi Negocio: Flujo/Inventario/Top/Fiado; Registrar: Foto/Voz/Manual).
+- Para elegir de una lista (rubro, producto del inventario) usa `components/ui/select.tsx`.
+- El gauge circular del score es `components/PymScoreCircular.tsx` (color por banda: rojo <40, ámbar 40-69, verde 70+).
+
+## Feedback obligatorio
+- Toast después de guardar
+- AlertDialog de confirmación antes de eliminar
+
+## Features condicionales por nivel
+```tsx
+const { nivel } = useNivel()
+{nivel >= 2 && <TarjetaPymScore />}
+{nivel >= 3 && <GraficoRentabilidad />}
+{nivel >= 4 && <ExpedienteFinanciero />}
+```

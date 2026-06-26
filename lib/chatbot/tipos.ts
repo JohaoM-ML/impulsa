@@ -1,0 +1,52 @@
+import type { createServiceClient } from '@/lib/supabase/server'
+import type { Nivel } from '@/lib/vocabulario'
+
+export type ServiceClient = ReturnType<typeof createServiceClient>
+
+export type TipoMensajeChatbot = 'text' | 'button_reply' | 'image'
+
+export type TipoAccion =
+  | 'registrar_venta'
+  | 'registrar_gasto'
+  | 'registrar_compra'
+  | 'registrar_fiado'
+  | 'consultar_flujo'
+  | 'consultar_deudas'
+  | 'consultar_inventario'
+  | 'ninguna'
+
+export type EstadoAccion = 'pendiente_confirmacion' | 'confirmada' | 'n/a'
+
+export interface BotonChatbot {
+  id: string
+  titulo: string
+}
+
+export interface AccionChatbot {
+  tipo: TipoAccion
+  estado: EstadoAccion
+  datos: Record<string, unknown>
+}
+
+/** Lo que el agente Claude devuelve (JSON) y el contrato hacia n8n. */
+export interface ResponseChatbot {
+  respuesta: string
+  botones?: BotonChatbot[]
+  accion?: AccionChatbot
+}
+
+export interface TurnoHistorial {
+  rol: 'usuario' | 'asesor'
+  texto: string
+}
+
+export interface EstadoConversacion {
+  estado_flujo: 'idle' | 'esperando_confirmacion'
+  contexto: { accion?: { tipo: TipoAccion; datos: Record<string, unknown> } }
+  historial: TurnoHistorial[]
+}
+
+export interface ContextoNegocio {
+  nivel: Nivel
+  resumen: string
+}

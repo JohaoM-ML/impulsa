@@ -1,0 +1,47 @@
+{
+  "hooks": [
+    {
+      "name": "bloquear-env-en-commits",
+      "event": "preCommand",
+      "match": "git add .env*",
+      "action": "block",
+      "message": "No hagas commit de archivos .env. Usa .env.example sin valores reales."
+    },
+    {
+      "name": "advertir-service-role-en-cliente",
+      "event": "onFileEdit",
+      "match": "**/*.tsx",
+      "action": "warn",
+      "condition": "contenido contiene SERVICE_ROLE_KEY",
+      "message": "SERVICE_ROLE_KEY detectado en componente. Nunca debe usarse en cliente."
+    },
+    {
+      "name": "recordar-negocio-id",
+      "event": "onFileCreate",
+      "match": "app/api/**/*.ts",
+      "action": "remind",
+      "message": "Nueva API Route: obtener negocio_id de la sesion, no del body. (Excepcion: /api/chatbot identifica por telefono)"
+    },
+    {
+      "name": "recordar-tres-estados",
+      "event": "onFileCreate",
+      "match": "app/(dashboard)/**/page.tsx",
+      "action": "remind",
+      "message": "Nueva pagina: implementar estado de carga, error y vacio."
+    },
+    {
+      "name": "recordar-vocab",
+      "event": "onFileCreate",
+      "match": "components/**/*.tsx",
+      "action": "remind",
+      "message": "Nuevo componente: si muestra terminos financieros, usa vocab() de useNivel()."
+    },
+    {
+      "name": "recordar-n8n-sin-logica",
+      "event": "onFileEdit",
+      "match": "n8n/**/*.json",
+      "action": "remind",
+      "message": "n8n solo orquesta. Toda la logica del chatbot va en /api/chatbot, no en nodos de n8n."
+    }
+  ]
+}

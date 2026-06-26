@@ -1,0 +1,47 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env files
+.env
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# source maps y artefactos compilados (nunca commitear)
+*.js.map
+*.mjs.map
+*.cjs.map
+*.d.ts.map
+*.d.mts.map
+*.d.cts.map
+
+# salida accidental de tsc (el proyecto usa Next.js, no compila a /dist)
+dist/
+*.tgz

@@ -1,0 +1,112 @@
+{
+  "name": "Impulsa - WhatsApp Chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["messages"]
+      },
+      "id": "whatsapp-trigger",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "notes": "Recibe mensajes entrantes de WhatsApp via Meta Cloud API. Configurar las credenciales de WhatsApp Business Cloud aqui."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_URL }}/api/chatbot",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-n8n-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"telefono\": \"{{ $json.messages[0].from }}\",\n  \"mensaje\": \"{{ $json.messages[0].text?.body || $json.messages[0].interactive?.button_reply?.id }}\",\n  \"tipo\": \"{{ $json.messages[0].type }}\"\n}",
+        "options": {}
+      },
+      "id": "http-chatbot",
+      "name": "Llamar a /api/chatbot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "notes": "AQUI vive toda la logica. Esta llamada va a tu API de Next.js que consulta Supabase, llama a Claude y decide la respuesta. n8n no piensa, solo enruta."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "version": 2 },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.botones }}",
+              "rightValue": "",
+              "operator": { "type": "array", "operation": "exists" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-botones",
+      "name": "Tiene botones?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "notes": "Unica decision permitida en n8n: distinguir si la respuesta trae botones (mensaje interactivo) o es texto plano."
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_ID }}",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "messageType": "text",
+        "textBody": "={{ $('Llamar a /api/chatbot').item.json.respuesta }}"
+      },
+      "id": "send-text",
+      "name": "Enviar texto",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [960, 400],
+      "notes": "Rama sin botones: envia la respuesta como texto plano."
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_ID }}",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "messageType": "interactive",
+        "interactiveType": "button"
+      },
+      "id": "send-buttons",
+      "name": "Enviar con botones",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [960, 200],
+      "notes": "Rama con botones: arma el mensaje interactivo de WhatsApp usando el array 'botones' de la respuesta. Mapear cada boton a reply id + titulo."
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [[{ "node": "Llamar a /api/chatbot", "type": "main", "index": 0 }]]
+    },
+    "Llamar a /api/chatbot": {
+      "main": [[{ "node": "Tiene botones?", "type": "main", "index": 0 }]]
+    },
+    "Tiene botones?": {
+      "main": [
+        [{ "node": "Enviar con botones", "type": "main", "index": 0 }],
+        [{ "node": "Enviar texto", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "_comentario_impulsa": "LEGACY — Meta Cloud API. No es el canal activo. Usar n8n/impulsa-twilio-whatsapp-twiml.json (Twilio)."
+}

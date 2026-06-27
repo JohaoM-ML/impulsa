@@ -17,6 +17,7 @@ export type TipoAccion =
   | 'consultar_inventario'
   | 'consultar_salud'
   | 'consultar_pedido'
+  | 'consultar_medios_pago'
   | 'ninguna'
 
 export type EstadoAccion = 'pendiente_confirmacion' | 'confirmada' | 'n/a'

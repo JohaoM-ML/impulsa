@@ -72,6 +72,19 @@ function BarraSimple({ label, monto, max, tono }: { label: string; monto: number
   )
 }
 
+// Nota que aclara que los gastos fijos del mes (alquiler, luz) se muestran
+// repartidos por semana, no como un golpe que "salió" todo de una vez.
+function NotaGastoFijo({ data }: { data: FlujoResumen }) {
+  if (!data.gastoFijoMensual || data.gastoFijoMensual <= 0) return null
+  return (
+    <p className="rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground">
+      💡 Tu alquiler, luz y demás gastos fijos son <b>{formatSoles(data.gastoFijoMensual)} al mes</b>.
+      Aquí repartimos solo la parte de la semana (≈ {formatSoles(data.gastoFijoSemanal)}), porque
+      eso se paga una vez al mes, no de golpe esta semana.
+    </p>
+  )
+}
+
 function GraficoNivel1({ data }: { data: FlujoResumen }) {
   const semana = ultimaSemana(data.serie)
   const quedo = semana.ventas - semana.gastos
@@ -91,11 +104,12 @@ function GraficoNivel1({ data }: { data: FlujoResumen }) {
             {formatSoles(quedo)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {quedo >= 0 ? 'Vas bien, cuida tus gastos.' : 'Ojo, salió más de lo que entró.'}
+            {quedo >= 0 ? 'Vas bien, cuida tus gastos.' : 'Esta semana gastaste más de lo que vendiste.'}
           </p>
         </div>
         <BarraSimple label="Entró por ventas" monto={semana.ventas} max={max} tono="venta" />
         <BarraSimple label="Salió del negocio" monto={semana.gastos} max={max} tono="gasto" />
+        <NotaGastoFijo data={data} />
         <p className={cn('flex items-center gap-1 text-sm font-medium', mejor ? 'text-primary' : 'text-destructive')}>
           {mejor ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
           {mejor ? 'Mejor que la semana pasada' : 'Más bajo que la semana pasada'}
@@ -129,8 +143,20 @@ function GraficoNivel2({ data }: { data: FlujoResumen }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+        <NotaGastoFijo data={data} />
       </CardContent>
     </Card>
+  )
+}
+
+// Nota técnica para niveles altos: los costos fijos se prorratean por semana.
+function NotaGastoFijoTecnica({ data }: { data: FlujoResumen }) {
+  if (!data.gastoFijoMensual || data.gastoFijoMensual <= 0) return null
+  return (
+    <p className="mt-3 rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground">
+      Tus costos fijos ({formatSoles(data.gastoFijoMensual)}/mes) se prorratean por semana
+      (≈ {formatSoles(data.gastoFijoSemanal)}) para no distorsionar el resultado de una semana puntual.
+    </p>
   )
 }
 
@@ -153,6 +179,7 @@ function GraficoNivel3({ data }: { data: FlujoResumen }) {
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+        <NotaGastoFijoTecnica data={data} />
       </CardContent>
     </Card>
   )
@@ -188,6 +215,7 @@ function GraficoNivel4({ data }: { data: FlujoResumen }) {
             </LineChart>
           </ResponsiveContainer>
         </div>
+        <NotaGastoFijoTecnica data={data} />
       </CardContent>
     </Card>
   )

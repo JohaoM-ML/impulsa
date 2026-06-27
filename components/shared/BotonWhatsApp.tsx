@@ -1,18 +1,17 @@
 'use client'
 
 import { MessageCircle } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
 import { getWhatsAppUrl } from '@/lib/whatsapp'
 
 /**
- * Botón "Chatear por WhatsApp" (bosquejo funcional).
+ * Botón flotante (FAB) circular "Chatear por WhatsApp".
+ * Fijo en la esquina inferior derecha, por encima de la barra de navegación.
  * Abre el chat con el número de Impulsa y un mensaje pre-cargado.
  * Si NEXT_PUBLIC_WHATSAPP_NUMERO no está configurado, no renderiza nada
  * (evita un link roto en la demo).
  */
 export function BotonWhatsApp({
   mensaje,
-  nota,
 }: {
   mensaje?: string
   nota?: string
@@ -26,19 +25,9 @@ export function BotonWhatsApp({
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chatear con Chaski por WhatsApp"
+      className="animate-float fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-black/20 transition-transform active:scale-95"
     >
-      <Card className="animate-float border-0 bg-[#25D366] text-white transition-transform active:scale-[0.98]">
-        <CardContent className="flex items-center gap-3 p-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20">
-            <MessageCircle className="h-6 w-6" />
-          </span>
-          <div className="flex-1">
-            <p className="font-semibold leading-tight">Chatear con Chaski por WhatsApp</p>
-            <p className="text-sm text-white/90">Registra y consulta tu negocio por chat →</p>
-            {nota && <p className="mt-1 text-xs text-white/80">{nota}</p>}
-          </div>
-        </CardContent>
-      </Card>
+      <MessageCircle className="h-7 w-7" />
     </a>
   )
 }

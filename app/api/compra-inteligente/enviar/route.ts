@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { construirCompraInteligente } from '@/lib/compra-inteligente-server'
+import { formatearPedidoWhatsApp } from '@/lib/chatbot/formato-pedido'
 import { getNegocioFromSession } from '@/lib/supabase/server'
 import { enviarWhatsApp, twilioConfigurado } from '@/lib/twilio'
 
@@ -29,15 +30,8 @@ export async function POST() {
     }
 
     const resumen = await construirCompraInteligente(supabase, negocio)
-    const lineas = [
-      resumen.mensajeChaski,
-      '',
-      ...resumen.grupos.pedir.slice(0, 5).map((p) => `- ${p.nombre}: pedir ${p.cantidad_pedir} ${p.unidad}`),
-    ]
+    await enviarWhatsApp(normalizarTelefono(negocio.telefono_wsp), formatearPedidoWhatsApp(resumen))
 
-    await enviarWhatsApp(normalizarTelefono(negocio.telefono_wsp), lineas.join('\n').trim())
-
-    // TODO: automatizar el envío un día antes de `proveedores.dia_visita` con cron.
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[POST /api/compra-inteligente/enviar]', err)

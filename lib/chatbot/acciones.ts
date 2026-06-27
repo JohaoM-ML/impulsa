@@ -1,5 +1,5 @@
 import type { Negocio } from '@/types'
-import { esMedioPago } from '@/lib/medios-pago'
+import { esMedioPago, etiquetaMedioPago } from '@/lib/medios-pago'
 import { recalcularSalud } from '@/lib/salud-server'
 import type { ServiceClient, TipoAccion } from '@/lib/chatbot/tipos'
 
@@ -124,11 +124,11 @@ async function registrarVenta(
   if (stockConErrores) {
     return {
       ok: true,
-      resumen: `Venta registrada: S/ ${total.toFixed(2)}. Revisa el stock de esos productos.`,
+      resumen: `Venta registrada: S/ ${total.toFixed(2)} (${etiquetaMedioPago(medioPago)}). Revisa el stock de esos productos.`,
     }
   }
 
-  return { ok: true, resumen: `Venta registrada: S/ ${total.toFixed(2)}` }
+  return { ok: true, resumen: `Venta registrada: S/ ${total.toFixed(2)} (${etiquetaMedioPago(medioPago)})` }
 }
 
 async function registrarCompra(

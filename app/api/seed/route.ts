@@ -308,14 +308,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Gastos (fijos + variables) ──
+    // ── Gastos fijos mensuales (alquiler, luz, agua, internet) ──
+    // Igual que el onboarding: se guardan en gastos_fijos como compromiso del mes
+    // y se marcan con "(fijo)" en gastos para que el flujo los prorratee por semana
+    // (no caen enteros en una sola semana, así no asustan al dueño).
+    await supabase.from('gastos_fijos').insert([
+      { negocio_id: negocio.id, categoria: 'alquiler', descripcion: 'Alquiler del local', monto: 800, activo: true },
+      { negocio_id: negocio.id, categoria: 'luz', descripcion: 'Luz', monto: 140, activo: true },
+      { negocio_id: negocio.id, categoria: 'agua', descripcion: 'Agua', monto: 60, activo: true },
+      { negocio_id: negocio.id, categoria: 'internet', descripcion: 'Internet', monto: 90, activo: true },
+    ])
+
+    // ── Gastos (fijos marcados + variables puntuales) ──
     await supabase.from('gastos').insert([
-      { negocio_id: negocio.id, descripcion: 'Alquiler del local', monto: 800, categoria: 'alquiler', creado_en: diasAtras(28) },
-      { negocio_id: negocio.id, descripcion: 'Luz', monto: 140, categoria: 'servicios', creado_en: diasAtras(20) },
-      { negocio_id: negocio.id, descripcion: 'Agua', monto: 60, categoria: 'servicios', creado_en: diasAtras(20) },
+      { negocio_id: negocio.id, descripcion: 'Alquiler del local (fijo)', monto: 800, categoria: 'alquiler', creado_en: diasAtras(28) },
+      { negocio_id: negocio.id, descripcion: 'Luz (fijo)', monto: 140, categoria: 'luz', creado_en: diasAtras(20) },
+      { negocio_id: negocio.id, descripcion: 'Agua (fijo)', monto: 60, categoria: 'agua', creado_en: diasAtras(20) },
       { negocio_id: negocio.id, descripcion: 'Reposición de bebidas', monto: 420, categoria: 'mercaderia', creado_en: diasAtras(14) },
       { negocio_id: negocio.id, descripcion: 'Reposición de abarrotes', monto: 650, categoria: 'mercaderia', creado_en: diasAtras(7) },
-      { negocio_id: negocio.id, descripcion: 'Internet', monto: 90, categoria: 'servicios', creado_en: diasAtras(5) },
+      { negocio_id: negocio.id, descripcion: 'Internet (fijo)', monto: 90, categoria: 'internet', creado_en: diasAtras(5) },
     ])
 
     // ── Clientes con fiado ("Te deben") ──

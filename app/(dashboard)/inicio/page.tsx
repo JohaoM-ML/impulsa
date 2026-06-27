@@ -14,6 +14,8 @@ import { BotonWhatsApp } from '@/components/shared/BotonWhatsApp'
 import { useNivel } from '@/hooks/useNivel'
 import { useNegocio } from '@/hooks/useNegocio'
 import { formatSoles } from '@/lib/utils'
+import { seleccionarTip, tipATexto } from '@/lib/tips'
+import type { Nivel } from '@/lib/vocabulario'
 import type { DashboardResumen } from '@/types'
 
 function fechaHoy(): string {
@@ -75,6 +77,7 @@ export default function InicioPage() {
   }
 
   const indice = resumen?.indice ?? resumen?.score ?? null
+  const tip = seleccionarTip(resumen, (nivel as Nivel) ?? 1)
 
   return (
     <div className="space-y-4 p-4">
@@ -215,13 +218,15 @@ export default function InicioPage() {
         </div>
       </div>
 
-      {/* Tip del día */}
+      {/* Tip del día (personalizado y rotativo) */}
       <Card className="border-primary/20 bg-brand-tint/70">
         <CardContent className="flex items-start gap-3 p-4">
-          <span className="text-2xl">🦙</span>
-          <p className="text-sm">
-            Tip del día: si guardas el <b>10% de lo que vendes</b>, en 3 meses tendrás un colchón
-            para tu negocio.
+          <span className="text-2xl" aria-hidden="true">{tip.emoji}</span>
+          <p className="text-sm" aria-label={`Tip del día: ${tipATexto(tip)}`}>
+            <span className="font-semibold">Tip del día:</span>{' '}
+            {tip.segmentos.map((seg, i) =>
+              seg.fuerte ? <b key={i}>{seg.texto}</b> : <span key={i}>{seg.texto}</span>
+            )}
           </p>
         </CardContent>
       </Card>

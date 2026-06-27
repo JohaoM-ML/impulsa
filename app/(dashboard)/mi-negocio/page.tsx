@@ -350,10 +350,19 @@ function TabFlujo() {
             ({formatSoles(data.costoMercaderia)}).
           </p>
           {data.tieneGastosFijos ? (
-            <p>
-              <b>Ganancia neta</b> = lo que te quedó al final, después de tus gastos fijos
-              ({formatSoles(data.gastosFijos)}).
-            </p>
+            <>
+              <p>
+                <b>Ganancia neta</b> = lo que te quedó al final, después de tus gastos fijos
+                ({formatSoles(data.gastosFijos)}).
+              </p>
+              {data.gastoFijoMensual > 0 && (
+                <p>
+                  Tus gastos fijos son <b>{formatSoles(data.gastoFijoMensual)} al mes</b>; los
+                  repartimos por semana (≈ {formatSoles(data.gastoFijoSemanal)}) para no asustarte con
+                  el monto de un solo golpe.
+                </p>
+              )}
+            </>
           ) : (
             <p>
               Aún no registras <b>gastos fijos</b> (alquiler, luz, sueldos). Regístralos para saber

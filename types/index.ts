@@ -38,6 +38,7 @@ export interface Negocio {
   hora_cierre_dia?: string
   resumen_diario_activo?: boolean
   ultimo_resumen_enviado?: string | null
+  ultimo_pedido_enviado?: string | null
   creado_en: string
 }
 
@@ -209,6 +210,10 @@ export interface FlujoResumen {
   gananciaNeta: number
   diagnostico: DiagnosticoFlujo
   tieneGastosFijos: boolean
+  /** Total de gastos fijos al mes (alquiler, luz, etc.), según la configuración del negocio. */
+  gastoFijoMensual: number
+  /** Parte semanal de esos gastos fijos (mensual prorrateado), para no asustar con el monto del mes. */
+  gastoFijoSemanal: number
   comparacion: {
     ventas: number
     gastos: number

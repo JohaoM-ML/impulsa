@@ -8,11 +8,15 @@ import {
 import { construirCompraInteligente } from '@/lib/compra-inteligente-server'
 import { calcularResumenDia } from '@/lib/resumen-diario'
 import { recalcularSalud } from '@/lib/salud-server'
+import { etiquetaMedioPago, normalizarMediosPago } from '@/lib/medios-pago'
 import { vocab, type Nivel } from '@/lib/vocabulario'
+import { formatearPedidoWhatsApp } from '@/lib/chatbot/formato-pedido'
 import type { ServiceClient, TipoAccion } from '@/lib/chatbot/tipos'
+import type { MedioPago } from '@/types'
 
 const SEMANAS_FLUJO = 4
 const MS_SEMANA = 7 * 24 * 60 * 60 * 1000
+const DIAS_MEDIOS_PAGO = 30
 
 function soles(monto: number): string {
   return `S/ ${monto.toFixed(2)}`
@@ -194,15 +198,41 @@ async function consultarSalud(
 
 async function consultarPedido(supabase: ServiceClient, negocio: Negocio): Promise<string> {
   const resumen = await construirCompraInteligente(supabase, negocio)
-  const urgentes = resumen.grupos.pedir.slice(0, 3)
-  if (!urgentes.length) return resumen.mensajeChaski
+  return formatearPedidoWhatsApp(resumen)
+}
+
+async function consultarMediosPago(supabase: ServiceClient, negocio: Negocio): Promise<string> {
+  const medios = normalizarMediosPago(negocio.medios_pago)
+  const desde = new Date(Date.now() - DIAS_MEDIOS_PAGO * 24 * 60 * 60 * 1000).toISOString()
+  const { data: ventas } = await supabase
+    .from('ventas')
+    .select('total, medio_pago')
+    .eq('negocio_id', negocio.id)
+    .gte('creado_en', desde)
+
+  const totales: Record<MedioPago, number> = {
+    efectivo: 0,
+    yape: 0,
+    plin: 0,
+    tarjeta: 0,
+  }
+
+  for (const venta of (ventas ?? []) as { total: number | null; medio_pago: MedioPago | null }[]) {
+    const medio = venta.medio_pago && venta.medio_pago in totales ? venta.medio_pago : 'efectivo'
+    totales[medio] += Number(venta.total ?? 0)
+  }
+
+  const movimiento = Object.entries(totales)
+    .filter(([, total]) => total > 0)
+    .map(([medio, total]) => `${etiquetaMedioPago(medio)}: ${soles(total)}`)
 
   return [
-    resumen.mensajeChaski,
-    ...urgentes.map((p) => `- ${p.nombre}: ${p.cantidad_pedir} ${p.unidad}`),
-  ]
-    .join('\n')
-    .slice(0, 900)
+    `Ahora aceptas: ${medios.map(etiquetaMedioPago).join(', ')}.`,
+    movimiento.length
+      ? `Últimos ${DIAS_MEDIOS_PAGO} días: ${movimiento.join(' | ')}.`
+      : `Aún no veo ventas registradas por medio de pago en los últimos ${DIAS_MEDIOS_PAGO} días.`,
+    'Para cambiar esos medios, entra a Mi Negocio en la app.',
+  ].join('\n')
 }
 
 export function esAccionDeConsulta(tipo: TipoAccion | undefined): boolean {
@@ -212,7 +242,8 @@ export function esAccionDeConsulta(tipo: TipoAccion | undefined): boolean {
     tipo === 'consultar_deudas' ||
     tipo === 'consultar_inventario' ||
     tipo === 'consultar_salud' ||
-    tipo === 'consultar_pedido'
+    tipo === 'consultar_pedido' ||
+    tipo === 'consultar_medios_pago'
   )
 }
 
@@ -235,6 +266,8 @@ export async function resolverConsultaAsesor(
       return consultarSalud(supabase, negocio, nivel)
     case 'consultar_pedido':
       return consultarPedido(supabase, negocio)
+    case 'consultar_medios_pago':
+      return consultarMediosPago(supabase, negocio)
     default:
       return 'Puedo ayudarte con ventas, gastos, inventario, deudas y salud financiera.'
   }

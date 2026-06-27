@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NOMBRES_NIVEL, vocab, type Nivel } from '@/lib/vocabulario'
 import { guiaTono } from '@/lib/tono'
 import { SYSTEM_PROMPT_ASESOR } from '@/lib/chatbot/prompt'
+import { formatearPedidoWhatsApp } from '@/lib/chatbot/formato-pedido'
 import {
   cargarConversacion,
   cargarNivel,
@@ -51,18 +52,6 @@ function esConsultaPedido(mensaje: string): boolean {
     texto.includes('que pido') ||
     texto.includes('compra inteligente')
   )
-}
-
-function formatearPedidoWhatsApp(resumen: Awaited<ReturnType<typeof construirCompraInteligente>>): string {
-  const urgentes = resumen.grupos.pedir.slice(0, 3)
-  if (!urgentes.length) return resumen.mensajeChaski
-
-  return [
-    resumen.mensajeChaski,
-    ...urgentes.map((p) => `- ${p.nombre}: ${p.cantidad_pedir} ${p.unidad}`),
-  ]
-    .join('\n')
-    .slice(0, 900)
 }
 
 function completarVentaConComprobante(datos: Record<string, unknown>): Record<string, unknown> {

@@ -5,28 +5,13 @@ import {
   inicioSemana,
   inicioSemanaAnterior,
 } from '@/lib/salud'
+import { costoDeVenta, type VentaConCosto } from '@/lib/finanzas'
 
 type SupabaseLike = {
   from: (tabla: string) => any
 }
 
 type NegocioLike = { id: string; creado_en?: string | null }
-
-interface ItemVentaCosto {
-  cantidad: number
-  precio_unit: number
-  productos: { precio_compra: number | null } | { precio_compra: number | null }[] | null
-}
-
-function costoDeVenta(venta: { items_venta?: ItemVentaCosto[] }): number {
-  const items = venta.items_venta ?? []
-  return items.reduce((s, it) => {
-    const prod = Array.isArray(it.productos) ? it.productos[0] : it.productos
-    const precioVenta = Number(it.precio_unit)
-    const costo = prod?.precio_compra != null ? Number(prod.precio_compra) : precioVenta * 0.65
-    return s + costo * Number(it.cantidad)
-  }, 0)
-}
 
 /**
  * Recalcula el Índice de Salud Financiera de la semana actual y lo persiste.
@@ -82,7 +67,7 @@ export async function recalcularSalud(
     0
   )
   const costoMercaderia = (ventas ?? []).reduce(
-    (s: number, v: { items_venta?: ItemVentaCosto[] }) => s + costoDeVenta(v),
+    (s: number, v: VentaConCosto) => s + costoDeVenta(v),
     0
   )
   const { gastosEfectivos } = gastosEfectivosSemana(gastos ?? [])

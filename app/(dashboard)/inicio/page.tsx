@@ -11,6 +11,7 @@ import { ExplicacionColapsable } from '@/components/shared/ExplicacionColapsable
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { BotonWhatsApp } from '@/components/shared/BotonWhatsApp'
 import { useNivel } from '@/hooks/useNivel'
 import { useNegocio } from '@/hooks/useNegocio'
 import { formatSoles } from '@/lib/utils'
@@ -162,6 +163,9 @@ export default function InicioPage() {
         <AccesoRapido href="/registrar" icon={<ShoppingCart className="h-5 w-5" />} label="Registrar compra" />
         <AccesoRapido href="/mi-negocio" icon={<BarChart3 className="h-5 w-5" />} label="Ver reportes" />
       </div>
+
+      {/* Chat por WhatsApp */}
+      <BotonWhatsApp nota="En sandbox: primero envía 'join <código>' al número de Impulsa." />
 
       {/* Camino al crédito */}
       <Link href="/salud">

@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getNegocioFromSession } from '@/lib/supabase/server'
+import {
+  costoDeVenta,
+  diagnosticarFlujo,
+  resumenFinanciero,
+  type VentaConCosto,
+} from '@/lib/finanzas'
 
 const SEMANAS = 8
 const MS_SEMANA = 7 * 24 * 60 * 60 * 1000
@@ -13,7 +19,7 @@ export async function GET() {
 
     const desde = new Date(Date.now() - SEMANAS * MS_SEMANA).toISOString()
 
-    const [{ data: ventas }, { data: gastos }] = await Promise.all([
+    const [{ data: ventas }, { data: gastos }, { data: gastosFijosCfg }] = await Promise.all([
       supabase
         .from('ventas')
         .select(
@@ -26,28 +32,18 @@ export async function GET() {
         .select('monto, creado_en')
         .eq('negocio_id', negocio.id)
         .gte('creado_en', desde),
+      supabase
+        .from('gastos_fijos')
+        .select('id')
+        .eq('negocio_id', negocio.id)
+        .eq('activo', true)
+        .limit(1),
     ])
 
-    // Costo de la mercadería vendida (COGS) por venta: lo que costó cada producto.
-    // Si no hay precio_compra, se estima en 65% del precio de venta.
-    const costoDeVenta = (venta: {
-      items_venta?: Array<{
-        cantidad: number
-        precio_unit: number
-        productos: { precio_compra: number | null } | { precio_compra: number | null }[] | null
-      }>
-    }): number => {
-      const items = venta.items_venta ?? []
-      return items.reduce((s, it) => {
-        const prod = Array.isArray(it.productos) ? it.productos[0] : it.productos
-        const precioVenta = Number(it.precio_unit)
-        const costo =
-          prod?.precio_compra != null ? Number(prod.precio_compra) : precioVenta * 0.65
-        return s + costo * Number(it.cantidad)
-      }, 0)
-    }
+    const ventasArr = (ventas ?? []) as (VentaConCosto & { total: number; creado_en: string })[]
+    const gastosArr = (gastos ?? []) as { monto: number; creado_en: string }[]
 
-    // Construye SEMANAS buckets terminando en la semana actual.
+    // Buckets semanales terminando en la semana actual.
     const ahora = Date.now()
     const buckets = Array.from({ length: SEMANAS }, (_, i) => {
       const finBucket = ahora - (SEMANAS - 1 - i) * MS_SEMANA
@@ -58,40 +54,83 @@ export async function GET() {
         inicio: inicioBucket,
         fin: finBucket,
         ventas: 0,
-        gastos: 0,
+        costoMercaderia: 0,
+        gastosFijos: 0,
       }
     })
 
-    const asignar = (fechaISO: string, monto: number, campo: 'ventas' | 'gastos') => {
+    const bucketDe = (fechaISO: string) => {
       const t = new Date(fechaISO).getTime()
-      const b = buckets.find((bk) => t > bk.inicio && t <= bk.fin)
-      if (b) b[campo] += monto
+      return buckets.find((bk) => t > bk.inicio && t <= bk.fin)
     }
 
-    for (const v of ventas ?? []) {
-      asignar(v.creado_en, Number(v.total), 'ventas')
-      // El costo de la mercadería vendida cuenta como gasto en el flujo.
-      asignar(v.creado_en, costoDeVenta(v), 'gastos')
+    for (const v of ventasArr) {
+      const b = bucketDe(v.creado_en)
+      if (b) {
+        b.ventas += Number(v.total)
+        b.costoMercaderia += costoDeVenta(v)
+      }
     }
-    for (const g of gastos ?? []) asignar(g.creado_en, Number(g.monto), 'gastos')
+    // Los gastos registrados (alquiler, luz, etc.) son los gastos fijos del periodo.
+    // No se vuelve a sumar la tabla gastos_fijos para evitar doble conteo: el
+    // onboarding ya inserta cada gasto fijo como una fila en `gastos`.
+    for (const g of gastosArr) {
+      const b = bucketDe(g.creado_en)
+      if (b) b.gastosFijos += Number(g.monto)
+    }
 
-    const serie = buckets.map((b) => ({
-      semana: b.label,
-      ventas: Math.round(b.ventas * 100) / 100,
-      gastos: Math.round(b.gastos * 100) / 100,
-    }))
+    const r2 = (n: number) => Math.round(n * 100) / 100
 
-    const totalVentas = (ventas ?? []).reduce((s, v) => s + Number(v.total), 0)
-    const totalCosto = (ventas ?? []).reduce((s, v) => s + costoDeVenta(v), 0)
-    const totalGastosReg = (gastos ?? []).reduce((s, g) => s + Number(g.monto), 0)
-    const totalGastos = totalCosto + totalGastosReg
+    const serie = buckets.map((b) => {
+      const bruta = b.ventas - b.costoMercaderia
+      const neta = bruta - b.gastosFijos
+      return {
+        semana: b.label,
+        ventas: r2(b.ventas),
+        costoMercaderia: r2(b.costoMercaderia),
+        gananciaBruta: r2(bruta),
+        gastosFijos: r2(b.gastosFijos),
+        gananciaNeta: r2(neta),
+        // Total de salidas de la semana (para el gráfico Ventas vs Gastos).
+        gastos: r2(b.costoMercaderia + b.gastosFijos),
+      }
+    })
+
+    const totalVentas = ventasArr.reduce((s, v) => s + Number(v.total), 0)
+    const totalCosto = ventasArr.reduce((s, v) => s + costoDeVenta(v), 0)
+    const totalGastosFijos = gastosArr.reduce((s, g) => s + Number(g.monto), 0)
+
+    const resumen = resumenFinanciero({
+      totalVentas,
+      costoMercaderia: totalCosto,
+      gastosFijos: totalGastosFijos,
+    })
+
+    // Comparación de la última semana cerrada vs la anterior (para niveles 1-2).
+    const semActual = serie[serie.length - 1]
+    const semAnterior = serie[serie.length - 2]
+    const comparacion = {
+      ventas: semActual?.ventas ?? 0,
+      gastos: semActual?.gastos ?? 0,
+      ganancia: semActual?.gananciaNeta ?? 0,
+      gananciaAnterior: semAnterior?.gananciaNeta ?? 0,
+      delta: r2((semActual?.gananciaNeta ?? 0) - (semAnterior?.gananciaNeta ?? 0)),
+    }
 
     return NextResponse.json({
       serie,
-      totalVentas: Math.round(totalVentas * 100) / 100,
-      totalGastos: Math.round(totalGastos * 100) / 100,
-      totalCosto: Math.round(totalCosto * 100) / 100,
-      totalGastosRegistrados: Math.round(totalGastosReg * 100) / 100,
+      totalVentas: r2(resumen.ventas),
+      costoMercaderia: r2(resumen.costoMercaderia),
+      gananciaBruta: r2(resumen.gananciaBruta),
+      gastosFijos: r2(resumen.gastosFijos),
+      gananciaNeta: r2(resumen.gananciaNeta),
+      diagnostico: diagnosticarFlujo(resumen),
+      tieneGastosFijos: (gastosFijosCfg?.length ?? 0) > 0 || totalGastosFijos > 0,
+      comparacion,
+      // Compatibilidad con clientes anteriores.
+      totalGastos: r2(resumen.costoMercaderia + resumen.gastosFijos),
+      totalCosto: r2(resumen.costoMercaderia),
+      totalGastosRegistrados: r2(resumen.gastosFijos),
     })
   } catch (err) {
     console.error('[GET /api/mi-negocio/flujo]', err)

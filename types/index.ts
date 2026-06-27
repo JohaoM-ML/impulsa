@@ -53,6 +53,9 @@ export interface Producto {
   stock_minimo: number
   precio_compra?: number | null
   precio_venta?: number | null
+  proveedor_id?: string | null
+  unidad_compra?: string | null
+  factor_compra?: number | null
   codigo_barras?: string | null
   activo: boolean
   actualizado_en: string
@@ -64,6 +67,8 @@ export interface Proveedor {
   nombre: string
   telefono?: string | null
   deuda_total: number
+  dia_visita?: number | null
+  frecuencia_dias?: number | null
 }
 
 export interface Cliente {
@@ -174,6 +179,39 @@ export interface DashboardResumen {
   ventasSemana: { dia: string; total: number }[]
 }
 
+export interface FlujoSemana {
+  semana: string
+  ventas: number
+  costoMercaderia: number
+  gananciaBruta: number
+  gastosFijos: number
+  gananciaNeta: number
+  gastos: number
+}
+
+export type DiagnosticoFlujo = 'margen' | 'costos_fijos' | 'positivo' | 'sin_datos'
+
+export interface FlujoResumen {
+  serie: FlujoSemana[]
+  totalVentas: number
+  costoMercaderia: number
+  gananciaBruta: number
+  gastosFijos: number
+  gananciaNeta: number
+  diagnostico: DiagnosticoFlujo
+  tieneGastosFijos: boolean
+  comparacion: {
+    ventas: number
+    gastos: number
+    ganancia: number
+    gananciaAnterior: number
+    delta: number
+  }
+  totalGastos: number
+  totalCosto: number
+  totalGastosRegistrados: number
+}
+
 export interface OCRProductoDetectado {
   nombre: string
   cantidad: number
@@ -222,4 +260,65 @@ export interface AbastecimientoResumen {
   unidades_sugeridas: number
   costo_estimado_total: number
   productos: AbastecimientoItem[]
+}
+
+export type ClasificacionCompra = 'pedir' | 'opcional' | 'no_pedir'
+export type TipoPatronCompra =
+  | 'quiebre_stock'
+  | 'capital_muerto'
+  | 'producto_estrella'
+  | 'caida_ventas'
+  | 'compra_conjunta'
+  | 'estacionalidad'
+
+export interface CompraInteligenteProducto {
+  id: string
+  nombre: string
+  categoria: string | null
+  proveedor_id: string | null
+  proveedor_nombre: string
+  unidad: string
+  unidad_compra: string | null
+  factor_compra: number
+  stock_actual: number
+  stock_minimo: number
+  precio_compra: number | null
+  precio_venta: number | null
+  vendido_periodo: number
+  velocidad_venta: number
+  dias_cobertura: number | null
+  dias_hasta_visita: number
+  stock_seguridad: number
+  cantidad_pedir: number
+  costo_estimado: number
+  clasificacion: ClasificacionCompra
+  motivo: string
+}
+
+export interface CompraInteligentePatron {
+  tipo: TipoPatronCompra
+  titulo: string
+  descripcion: string
+  producto_id?: string
+  productos?: string[]
+  severidad: 'alta' | 'media' | 'baja'
+}
+
+export interface CompraInteligenteProveedor {
+  id: string
+  nombre: string
+  dia_visita: number | null
+  frecuencia_dias: number
+}
+
+export interface CompraInteligenteResumen {
+  grupos: {
+    pedir: CompraInteligenteProducto[]
+    opcional: CompraInteligenteProducto[]
+    noPedir: CompraInteligenteProducto[]
+  }
+  consejos: string[]
+  patrones: CompraInteligentePatron[]
+  proveedores: CompraInteligenteProveedor[]
+  mensajeChaski: string
 }

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -11,10 +13,17 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Search, ShoppingCart, TrendingDown, TrendingUp } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Search, ShoppingCart, TrendingDown, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   AlertDialog,
@@ -33,21 +42,32 @@ import { EstadoVacio } from '@/components/estados/EstadoVacio'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useNivel } from '@/hooks/useNivel'
 import { toast } from '@/hooks/use-toast'
-import { calcularGanancia } from '@/lib/finanzas'
 import { etiquetaPeriodo, type PeriodoAbastecimiento } from '@/lib/abastecimiento'
 import { formatSoles, cn } from '@/lib/utils'
-import type { AbastecimientoResumen, Cliente, Producto, Proveedor, TopProductoItem, TopResumen } from '@/types'
-
-interface FlujoData {
-  serie: { semana: string; ventas: number; gastos: number }[]
-  totalVentas: number
-  totalGastos: number
-  totalCosto: number
-  totalGastosRegistrados: number
-}
+import type {
+  AbastecimientoResumen,
+  Cliente,
+  CompraInteligenteProducto,
+  CompraInteligenteResumen,
+  FlujoResumen,
+  Producto,
+  Proveedor,
+  TopProductoItem,
+  TopResumen,
+} from '@/types'
 
 type VistaTop = 'cantidad' | 'ingresos' | 'sin_ventas'
 type PeriodoTop = '7d' | '30d' | '90d' | 'todo'
+
+const DIAS_SEMANA = [
+  { value: '0', label: 'Domingo' },
+  { value: '1', label: 'Lunes' },
+  { value: '2', label: 'Martes' },
+  { value: '3', label: 'Miércoles' },
+  { value: '4', label: 'Jueves' },
+  { value: '5', label: 'Viernes' },
+  { value: '6', label: 'Sábado' },
+]
 
 // Capitaliza la primera letra de un término del vocabulario para usarlo como etiqueta.
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -97,6 +117,7 @@ export default function MiNegocioPage() {
           <TabsTrigger value="flujo">Flujo</TabsTrigger>
           <TabsTrigger value="inventario">Inventario</TabsTrigger>
           <TabsTrigger value="top">Top</TabsTrigger>
+          <TabsTrigger value="compra">Pedido</TabsTrigger>
           <TabsTrigger value="fiado">Fiado</TabsTrigger>
         </TabsList>
         <TabsContent value="flujo">
@@ -108,6 +129,9 @@ export default function MiNegocioPage() {
         <TabsContent value="top">
           <TabTop />
         </TabsContent>
+        <TabsContent value="compra">
+          <TabCompra />
+        </TabsContent>
         <TabsContent value="fiado">
           <TabFiado />
         </TabsContent>
@@ -117,9 +141,89 @@ export default function MiNegocioPage() {
 }
 
 // ───────────────────────── Flujo ─────────────────────────
-function TabFlujo() {
+// Tarjeta compacta de una cifra del modelo de ganancia.
+function TarjetaCifra({
+  etiqueta,
+  monto,
+  tono,
+}: {
+  etiqueta: string
+  monto: number
+  tono: 'venta' | 'costo' | 'bruta' | 'neta'
+}) {
+  const color =
+    tono === 'venta'
+      ? 'text-primary'
+      : tono === 'costo'
+        ? 'text-destructive'
+        : monto >= 0
+          ? 'text-emerald-600'
+          : 'text-destructive'
+  return (
+    <Card className="min-w-0">
+      <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
+        <p className="min-h-[2.4em] text-[11px] uppercase leading-tight text-muted-foreground">{etiqueta}</p>
+        <p className={cn('whitespace-nowrap text-[13px] font-bold leading-tight tracking-tight tabular-nums', color)}>
+          {formatSoles(monto)}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function MensajeFlujo({ data }: { data: FlujoResumen }) {
   const { vocab } = useNivel()
-  const [data, setData] = useState<FlujoData | null>(null)
+  let mensaje: ReactNode
+
+  switch (data.diagnostico) {
+    case 'margen':
+      mensaje = (
+        <>
+          Estás vendiendo por <b>debajo de lo que te cuesta la mercadería</b>. Revisa tus precios
+          de venta o negocia mejor con tus proveedores.
+        </>
+      )
+      break
+    case 'costos_fijos':
+      mensaje = (
+        <>
+          Tu negocio <b>vende bien</b>, pero tus gastos fijos (alquiler, luz, sueldos) son altos
+          para lo que vendes. Apunta a vender más o bajar esos gastos.
+        </>
+      )
+      break
+    case 'positivo':
+      mensaje = (
+        <>
+          ¡Bien! Después de pagar la mercadería y tus gastos fijos, tu negocio <b>queda en
+          ganancia</b>. Tu {vocab('flujo_caja')} está positivo.
+        </>
+      )
+      break
+    default:
+      mensaje = <>Registra tus ventas y gastos para ver cómo va tu negocio.</>
+  }
+
+  const tono =
+    data.diagnostico === 'positivo'
+      ? 'border-primary/30 bg-primary/5'
+      : data.diagnostico === 'sin_datos'
+        ? 'border-muted'
+        : 'border-amber-300 bg-amber-50'
+
+  return (
+    <Card className={tono}>
+      <CardContent className="flex items-start gap-3 p-4">
+        <span className="text-2xl">🦙</span>
+        <p className="text-sm">{mensaje}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function TabFlujo() {
+  const { nivel } = useNivel()
+  const [data, setData] = useState<FlujoResumen | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -131,7 +235,7 @@ function TabFlujo() {
         if (!r.ok) throw new Error('fetch flujo')
         return r.json()
       })
-      .then((d) => setData(d))
+      .then((d: FlujoResumen) => setData(d))
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [])
@@ -144,80 +248,449 @@ function TabFlujo() {
   if (error) return <EstadoError mensaje="No pudimos cargar tu flujo de caja." onReintentar={cargar} />
   if (!data) return <EstadoVacio mensaje="Aún no hay movimientos para mostrar." />
 
-  const positivo = data.totalVentas >= data.totalGastos
-  const ganancia = calcularGanancia(data.totalVentas, data.totalGastos)
+  const nivelBasico = nivel <= 2
+  const { comparacion } = data
+  const mejor = comparacion.delta >= 0
+  const gano = comparacion.ganancia >= 0
 
   return (
     <div className="space-y-4">
+      {/* Ventas − Costo de mercadería = Ganancia bruta */}
       <div className="grid grid-cols-3 items-stretch gap-2">
-        <Card className="min-w-0">
-          <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
-            <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">Ventas</p>
-            <p className="whitespace-nowrap text-[13px] font-bold leading-tight tracking-tight tabular-nums text-primary">
-              {formatSoles(data.totalVentas)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="min-w-0">
-          <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
-            <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">{cap(vocab('gasto'))}</p>
-            <p className="whitespace-nowrap text-[13px] font-bold leading-tight tracking-tight tabular-nums text-destructive">
-              {formatSoles(data.totalGastos)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="min-w-0">
-          <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
-            <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">{cap(vocab('ganancia'))}</p>
-            <p className={cn('whitespace-nowrap text-[13px] font-bold leading-tight tracking-tight tabular-nums', ganancia >= 0 ? 'text-emerald-600' : 'text-destructive')}>
-              {formatSoles(ganancia)}
-            </p>
-          </CardContent>
-        </Card>
+        <TarjetaCifra etiqueta="Ventas" monto={data.totalVentas} tono="venta" />
+        <TarjetaCifra etiqueta="Costo de mercadería" monto={data.costoMercaderia} tono="costo" />
+        <TarjetaCifra etiqueta="Ganancia bruta" monto={data.gananciaBruta} tono="bruta" />
+      </div>
+
+      {/* (−) Gastos fijos = Ganancia neta */}
+      <div className="grid grid-cols-2 items-stretch gap-2">
+        <TarjetaCifra etiqueta="Gastos fijos" monto={data.gastosFijos} tono="costo" />
+        <TarjetaCifra etiqueta="Ganancia neta" monto={data.gananciaNeta} tono="neta" />
       </div>
 
       <Card className="border-muted">
-        <CardContent className="p-3 text-xs text-muted-foreground">
-          {cap(vocab('gasto'))} incluye el <b>costo de la mercadería que vendiste</b> ({formatSoles(data.totalCosto)})
-          {data.totalGastosRegistrados > 0 && (
-            <> más tus gastos registrados ({formatSoles(data.totalGastosRegistrados)})</>
-          )}.
+        <CardContent className="space-y-1 p-3 text-xs text-muted-foreground">
+          <p>
+            <b>Ganancia bruta</b> = lo que te dejó la venta después de pagar la mercadería
+            ({formatSoles(data.costoMercaderia)}).
+          </p>
+          {data.tieneGastosFijos ? (
+            <p>
+              <b>Ganancia neta</b> = lo que te quedó al final, después de tus gastos fijos
+              ({formatSoles(data.gastosFijos)}).
+            </p>
+          ) : (
+            <p>
+              Aún no registras <b>gastos fijos</b> (alquiler, luz, sueldos). Regístralos para saber
+              cuánto te queda de verdad.
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-4">
-          <p className="mb-3 font-semibold text-brand-dark">Ventas vs {cap(vocab('gasto'))} (semanal)</p>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.serie}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="semana" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} width={40} />
-                <Tooltip formatter={(v: number) => formatSoles(v)} />
-                <Legend />
-                <Line type="monotone" dataKey="ventas" name="Ventas" stroke="hsl(153 69% 39%)" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="gastos" name={cap(vocab('gasto'))} stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+      {/* Comparación semanal — lenguaje simple para niveles 1-2 */}
+      {nivelBasico ? (
+        <Card>
+          <CardContent className="space-y-2 p-4">
+            <p className="font-semibold text-brand-dark">Esta semana</p>
+            <p className="text-sm">
+              Vendiste <b className="text-primary">{formatSoles(comparacion.ventas)}</b> y gastaste{' '}
+              <b className="text-destructive">{formatSoles(comparacion.gastos)}</b>.{' '}
+              {gano ? 'Ganaste' : 'Perdiste'}{' '}
+              <b className={gano ? 'text-emerald-600' : 'text-destructive'}>
+                {formatSoles(Math.abs(comparacion.ganancia))}
+              </b>
+              .
+            </p>
+            <p className={cn('flex items-center gap-1 text-sm font-medium', mejor ? 'text-emerald-600' : 'text-destructive')}>
+              {mejor ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+              {mejor ? 'Mejor' : 'Peor'} que la semana pasada
+              {comparacion.delta !== 0 && <> ({formatSoles(Math.abs(comparacion.delta))})</>}
+            </p>
+            <div className="h-40 pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.serie.slice(-4)}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="semana" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} width={40} />
+                  <Tooltip formatter={(v: number) => formatSoles(v)} />
+                  <Legend />
+                  <Bar dataKey="ventas" name="Ventas" fill="hsl(153 69% 39%)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="gastos" name="Gastos" fill="hsl(0 84% 60%)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-4">
+            <p className="mb-3 font-semibold text-brand-dark">Ventas vs Gastos (semanal)</p>
+            <div className="h-60">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.serie}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="semana" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} width={40} />
+                  <Tooltip formatter={(v: number) => formatSoles(v)} />
+                  <Legend />
+                  <Line type="monotone" dataKey="ventas" name="Ventas" stroke="hsl(153 69% 39%)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="gananciaNeta" name="Ganancia neta" stroke="hsl(217 91% 60%)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="gastos" name="Gastos" stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <MensajeFlujo data={data} />
+    </div>
+  )
+}
+
+// ───────────────────────── Compra Inteligente ─────────────────────────
+function cantidadPedidoTexto(p: CompraInteligenteProducto): string {
+  if (p.cantidad_pedir <= 0) return 'No pedir'
+  if (p.unidad_compra && p.factor_compra > 1) {
+    const bultos = p.cantidad_pedir / p.factor_compra
+    return `${bultos} ${p.unidad_compra}${bultos === 1 ? '' : 's'} (${p.cantidad_pedir} ${p.unidad})`
+  }
+  return `${p.cantidad_pedir} ${p.unidad}`
+}
+
+function GrupoPedido({
+  titulo,
+  descripcion,
+  productos,
+  tono,
+}: {
+  titulo: string
+  descripcion: string
+  productos: CompraInteligenteProducto[]
+  tono: 'pedir' | 'opcional' | 'no'
+}) {
+  const borde =
+    tono === 'pedir'
+      ? 'border-l-4 border-l-destructive'
+      : tono === 'opcional'
+        ? 'border-l-4 border-l-amber-500'
+        : 'border-l-4 border-l-muted'
+
+  return (
+    <Card className={borde}>
+      <CardContent className="space-y-3 p-4">
+        <div>
+          <p className="font-semibold text-brand-dark">{titulo}</p>
+          <p className="text-xs text-muted-foreground">{descripcion}</p>
+        </div>
+        {productos.length ? (
+          <div className="space-y-2">
+            {productos.slice(0, 6).map((p) => (
+              <div key={p.id} className="rounded-xl border bg-background p-3 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium leading-tight">{p.nombre}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Stock {p.stock_actual} · vende {p.velocidad_venta}/día · {p.proveedor_nombre}
+                    </p>
+                  </div>
+                  <span className={cn('shrink-0 text-right font-bold', tono === 'no' ? 'text-muted-foreground' : 'text-primary')}>
+                    {cantidadPedidoTexto(p)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{p.motivo}</p>
+                {p.costo_estimado > 0 && (
+                  <p className="mt-1 text-xs font-medium text-brand-dark">
+                    Costo aprox: {formatSoles(p.costo_estimado)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">
+            No hay productos en este grupo por ahora.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function TabCompra() {
+  const [data, setData] = useState<CompraInteligenteResumen | null>(null)
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+  const [nombreProveedor, setNombreProveedor] = useState('')
+  const [diaVisita, setDiaVisita] = useState('1')
+  const [productoId, setProductoId] = useState('')
+  const [proveedorId, setProveedorId] = useState('')
+  const [unidadCompra, setUnidadCompra] = useState('')
+  const [factorCompra, setFactorCompra] = useState('1')
+  const [enviando, setEnviando] = useState(false)
+
+  const cargar = useCallback(() => {
+    setLoading(true)
+    setError(false)
+    Promise.all([
+      fetch('/api/compra-inteligente').then((r) => {
+        if (!r.ok) throw new Error('fetch compra')
+        return r.json()
+      }),
+      fetch('/api/inventario').then((r) => {
+        if (!r.ok) throw new Error('fetch inventario')
+        return r.json()
+      }),
+      fetch('/api/proveedores').then((r) => {
+        if (!r.ok) throw new Error('fetch proveedores')
+        return r.json()
+      }),
+    ])
+      .then(([compra, inv, prov]: [CompraInteligenteResumen, Producto[], Proveedor[]]) => {
+        setData(compra)
+        setProductos(Array.isArray(inv) ? inv : [])
+        setProveedores(Array.isArray(prov) ? prov : [])
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function crearProveedor() {
+    if (!nombreProveedor.trim()) {
+      toast({ title: 'Escribe el nombre del proveedor', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/proveedores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: nombreProveedor,
+          dia_visita: Number(diaVisita),
+          frecuencia_dias: 7,
+        }),
+      })
+      if (!res.ok) throw new Error('post proveedor')
+      toast({ title: 'Proveedor guardado' })
+      setNombreProveedor('')
+      cargar()
+    } catch {
+      toast({ title: 'No se pudo guardar el proveedor', variant: 'destructive' })
+    }
+  }
+
+  async function asignarProveedor() {
+    if (!productoId || !proveedorId) {
+      toast({ title: 'Elige producto y proveedor', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/inventario', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: productoId,
+          proveedor_id: proveedorId,
+          unidad_compra: unidadCompra.trim() || null,
+          factor_compra: Number(factorCompra) || 1,
+        }),
+      })
+      if (!res.ok) throw new Error('patch producto')
+      toast({ title: 'Producto conectado al proveedor' })
+      setProductoId('')
+      setProveedorId('')
+      setUnidadCompra('')
+      setFactorCompra('1')
+      cargar()
+    } catch {
+      toast({ title: 'No se pudo conectar el producto', variant: 'destructive' })
+    }
+  }
+
+  async function enviarPorWhatsApp() {
+    setEnviando(true)
+    try {
+      const res = await fetch('/api/compra-inteligente/enviar', { method: 'POST' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'No se pudo enviar')
+      }
+      toast({ title: 'Recomendación enviada por WhatsApp' })
+    } catch (err) {
+      toast({
+        title: err instanceof Error ? err.message : 'No se pudo enviar por WhatsApp',
+        variant: 'destructive',
+      })
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  if (!data && !loading && !error) {
+    return (
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="space-y-3 p-4">
+          <p className="font-semibold text-brand-dark">Compra Inteligente con Chaski</p>
+          <p className="text-sm text-muted-foreground">
+            Chaski revisa tus ventas, tu stock y el día que pasa tu proveedor para decirte qué pedir.
+          </p>
+          <Button className="min-h-[48px] w-full" onClick={cargar}>
+            Ver recomendación para el pedido de mañana
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (loading) return <EstadoCargando mensaje="Chaski está revisando tu pedido..." />
+  if (error) return <EstadoError mensaje="No pudimos preparar tu pedido inteligente." onReintentar={cargar} />
+  if (!data) return <EstadoVacio mensaje="Aún no hay datos para recomendar compras." />
+
+  const totalPedir = data.grupos.pedir.reduce((s, p) => s + p.costo_estimado, 0)
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="flex items-start gap-3 p-4">
+          <span className="text-2xl">🦙</span>
+          <div className="space-y-2 text-sm">
+            <p>{data.mensajeChaski}</p>
+            <p className="text-xs text-muted-foreground">
+              Urgentes: {data.grupos.pedir.length} · Por si acaso: {data.grupos.opcional.length}
+              {totalPedir > 0 && <> · Costo aprox: {formatSoles(totalPedir)}</>}
+            </p>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-primary/30 bg-primary/5">
-        <CardContent className="flex items-start gap-3 p-4">
-          <span className="text-2xl">🦙</span>
-          <p className="text-sm">
-            {positivo ? (
-              <>
-                ¡Bien! Vendiste más de lo que gastaste. Tu {vocab('flujo_caja')} está <b>positivo</b>.
-              </>
-            ) : (
-              <>
-                Cuidado: gastaste más de lo que vendiste. Revisa {vocab('gasto')}.
-              </>
-            )}
-          </p>
+      <div className="grid grid-cols-2 gap-2">
+        <Button className="min-h-[48px]" onClick={cargar}>
+          Actualizar pedido
+        </Button>
+        <Button
+          className="min-h-[48px]"
+          variant="outline"
+          disabled={enviando}
+          onClick={enviarPorWhatsApp}
+        >
+          {enviando ? 'Enviando...' : 'Enviarme por WhatsApp'}
+        </Button>
+      </div>
+
+      <GrupoPedido
+        titulo="Pide sí o sí"
+        descripcion="Alta rotación o se puede acabar antes de que pase el proveedor."
+        productos={data.grupos.pedir}
+        tono="pedir"
+      />
+      <GrupoPedido
+        titulo="Por si acaso"
+        descripcion="Aguanta justo, pero conviene un colchón pequeño."
+        productos={data.grupos.opcional}
+        tono="opcional"
+      />
+      <GrupoPedido
+        titulo="Mejor no pidas"
+        descripcion="Tienes suficiente o se mueve poco. Cuida tu plata."
+        productos={data.grupos.noPedir}
+        tono="no"
+      />
+
+      {!!data.consejos.length && (
+        <Card>
+          <CardContent className="space-y-2 p-4">
+            <p className="font-semibold text-brand-dark">Consejos de Chaski</p>
+            {data.consejos.slice(0, 2).map((c) => (
+              <p key={c} className="rounded-xl bg-brand-tint p-3 text-sm text-brand-dark">
+                {c}
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="space-y-3 p-4">
+          <div>
+            <p className="font-semibold text-brand-dark">Proveedores y visita</p>
+            <p className="text-xs text-muted-foreground">
+              Registra cuándo pasa cada proveedor para que Chaski calcule mejor el pedido.
+            </p>
+          </div>
+          <Input
+            value={nombreProveedor}
+            onChange={(e) => setNombreProveedor(e.target.value)}
+            placeholder="Nombre del proveedor"
+          />
+          <Select value={diaVisita} onValueChange={setDiaVisita}>
+            <SelectTrigger>
+              <SelectValue placeholder="Día de visita" />
+            </SelectTrigger>
+            <SelectContent>
+              {DIAS_SEMANA.map((d) => (
+                <SelectItem key={d.value} value={d.value}>
+                  {d.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button className="min-h-[48px] w-full" onClick={crearProveedor}>
+            Guardar proveedor
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3 p-4">
+          <div>
+            <p className="font-semibold text-brand-dark">Conectar producto con proveedor</p>
+            <p className="text-xs text-muted-foreground">
+              Así Chaski sabe qué recomendarle a cada proveedor.
+            </p>
+          </div>
+          <Select value={productoId} onValueChange={setProductoId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Producto" />
+            </SelectTrigger>
+            <SelectContent>
+              {productos.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={proveedorId} onValueChange={setProveedorId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Proveedor" />
+            </SelectTrigger>
+            <SelectContent>
+              {proveedores.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              value={unidadCompra}
+              onChange={(e) => setUnidadCompra(e.target.value)}
+              placeholder="Caja/saco"
+            />
+            <Input
+              value={factorCompra}
+              onChange={(e) => setFactorCompra(e.target.value)}
+              inputMode="numeric"
+              placeholder="Unid."
+            />
+          </div>
+          <Button className="min-h-[48px] w-full" onClick={asignarProveedor}>
+            Guardar relación
+          </Button>
         </CardContent>
       </Card>
     </div>

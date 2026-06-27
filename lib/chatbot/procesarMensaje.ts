@@ -1,5 +1,6 @@
 import type { Negocio } from '@/types'
 import { getAnthropicClient, MODELO_CLAUDE } from '@/lib/claude'
+import { construirCompraInteligente } from '@/lib/compra-inteligente-server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { SYSTEM_PROMPT_ASESOR } from '@/lib/chatbot/prompt'
 import {
@@ -38,6 +39,29 @@ function parsearSalida(texto: string): ResponseChatbot | null {
   } catch {
     return null
   }
+}
+
+function esConsultaPedido(mensaje: string): boolean {
+  const texto = mensaje.trim().toLowerCase()
+  return (
+    texto === 'mi pedido' ||
+    texto === 'pedido' ||
+    texto.includes('qué pido') ||
+    texto.includes('que pido') ||
+    texto.includes('compra inteligente')
+  )
+}
+
+function formatearPedidoWhatsApp(resumen: Awaited<ReturnType<typeof construirCompraInteligente>>): string {
+  const urgentes = resumen.grupos.pedir.slice(0, 3)
+  if (!urgentes.length) return resumen.mensajeChaski
+
+  return [
+    resumen.mensajeChaski,
+    ...urgentes.map((p) => `- ${p.nombre}: ${p.cantidad_pedir} ${p.unidad}`),
+  ]
+    .join('\n')
+    .slice(0, 900)
 }
 
 function construirContextoSistema(
@@ -94,6 +118,21 @@ export async function procesarMensaje(
   ])
 
   const textoUsuario = textoDeMensaje(mensaje, tipo)
+
+  if (esConsultaPedido(textoUsuario)) {
+    const resumenPedido = await construirCompraInteligente(supabase, negocio)
+    const respuesta = formatearPedidoWhatsApp(resumenPedido)
+    await guardarConversacion(supabase, negocio.id, telefono, {
+      estado_flujo: 'idle',
+      contexto: {},
+      historial: [
+        ...estado.historial,
+        { rol: 'usuario', texto: textoUsuario },
+        { rol: 'asesor', texto: respuesta },
+      ],
+    })
+    return { respuesta }
+  }
 
   if (tipo === 'button_reply' && mensaje === 'cancelar') {
     const respuesta = 'Listo, cancelado. ¿En qué más te ayudo?'

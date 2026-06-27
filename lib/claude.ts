@@ -1,5 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk'
-import type { OCRProductoDetectado } from '@/types'
+import { vocab, type Nivel } from '@/lib/vocabulario'
+import type {
+  CompraInteligentePatron,
+  CompraInteligenteProducto,
+  OCRProductoDetectado,
+} from '@/types'
 
 // Modelo balanceado para tareas generales del producto.
 export const MODELO_CLAUDE = 'claude-sonnet-4-6'
@@ -220,6 +225,101 @@ Formato OBLIGATORIO (es para un bodeguero de 45 años que lee en el celular):
 
   const block = message.content[0]
   return block.type === 'text' ? block.text : `Salud financiera: ${datos.indice}/100`
+}
+
+export async function generarMensajeChaski(datos: {
+  nivel: Nivel
+  grupos: {
+    pedir: CompraInteligenteProducto[]
+    opcional: CompraInteligenteProducto[]
+    noPedir: CompraInteligenteProducto[]
+  }
+  patrones: CompraInteligentePatron[]
+  consejos: string[]
+}): Promise<string> {
+  const topPedir = datos.grupos.pedir.slice(0, 4)
+  const topOpcional = datos.grupos.opcional.slice(0, 3)
+  const labelAbastecer = vocab('abastecer', datos.nivel)
+
+  const fallback = () => {
+    if (!topPedir.length && !topOpcional.length) {
+      return 'Soy Chaski. Por ahora tu stock aguanta; no amarres plata en productos que se mueven poco.'
+    }
+    const principal = topPedir[0] ?? topOpcional[0]
+    return [
+      `Soy Chaski. Para tu ${labelAbastecer}, empieza por ${principal.nombre}.`,
+      topPedir.length
+        ? `Pide sí o sí ${topPedir.length} producto${topPedir.length === 1 ? '' : 's'} de alta rotación.`
+        : 'No veo productos urgentes para pedir hoy.',
+      datos.consejos[0] ?? 'Compra con calma y prioriza lo que más rota.',
+    ].join('\n')
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return fallback()
+  }
+
+  const payload = {
+    nivel: datos.nivel,
+    vocabulario: {
+      abastecer: labelAbastecer,
+      inventario_bajo: vocab('inventario_bajo', datos.nivel),
+    },
+    pedir: topPedir.map((p) => ({
+      producto: p.nombre,
+      cantidad: p.cantidad_pedir,
+      unidad: p.unidad,
+      unidad_compra: p.unidad_compra,
+      proveedor: p.proveedor_nombre,
+      motivo: p.motivo,
+    })),
+    opcional: topOpcional.map((p) => ({
+      producto: p.nombre,
+      cantidad: p.cantidad_pedir,
+      unidad: p.unidad,
+      unidad_compra: p.unidad_compra,
+      proveedor: p.proveedor_nombre,
+      motivo: p.motivo,
+    })),
+    patrones: datos.patrones.slice(0, 4).map((p) => ({
+      tipo: p.tipo,
+      titulo: p.titulo,
+      descripcion: p.descripcion,
+    })),
+    consejos: datos.consejos.slice(0, 2),
+  }
+
+  try {
+    const client = getAnthropicClient()
+    const message = await client.messages.create({
+      model: MODELO_CLAUDE_RAPIDO,
+      max_tokens: 260,
+      messages: [
+        {
+          role: 'user',
+          content: `Eres Chaski, el asesor cercano de Impulsa para una bodega peruana.
+
+TAREA: redacta un mensaje natural para WhatsApp/app sobre la compra sugerida.
+NO calcules nada. NO inventes productos, cantidades ni proveedores. Usa SOLO estos datos estructurados:
+${JSON.stringify(payload)}
+
+Reglas:
+- Máximo 4 líneas.
+- Tono peruano cercano, simple y útil.
+- Sin fórmulas ni términos técnicos.
+- Di "Soy Chaski" solo si suena natural.
+- Si no hay urgentes, recomienda no comprar de más.
+- Respeta el vocabulario del nivel del dueño.`,
+        },
+      ],
+    })
+
+    const block = message.content[0]
+    return block.type === 'text' ? block.text.trim() : fallback()
+  } catch (err) {
+    console.error('[generarMensajeChaski]', err)
+    return fallback()
+  }
 }
 
 /** @deprecated Usar generarExplicacionSalud */

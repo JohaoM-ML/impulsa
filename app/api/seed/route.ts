@@ -11,50 +11,139 @@ const INVENTARIO: Array<{
   min: number
   compra: number
   venta: number
+  proveedor: 'bebidas' | 'abarrotes' | 'limpieza' | 'golosinas'
+  unidadCompra?: string
+  factorCompra?: number
 }> = [
   // Bebidas
-  { nombre: 'Inca Kola 500ml', categoria: 'Bebidas', stock: 2, min: 6, compra: 1.3, venta: 1.8 },
-  { nombre: 'Coca Cola 500ml', categoria: 'Bebidas', stock: 3, min: 6, compra: 7.7, venta: 11.0 },
-  { nombre: 'Sporade 500ml', categoria: 'Bebidas', stock: 5, min: 6, compra: 1.1, venta: 1.5 },
-  { nombre: 'Agua San Luis 625ml', categoria: 'Bebidas', stock: 24, min: 8, compra: 0.9, venta: 1.5 },
-  { nombre: 'Cifrut 300ml', categoria: 'Bebidas', stock: 18, min: 6, compra: 0.8, venta: 1.2 },
-  { nombre: 'Pilsen 305ml', categoria: 'Bebidas', stock: 30, min: 12, compra: 3.2, venta: 5.0 },
-  { nombre: 'Frugos del Valle 1L', categoria: 'Bebidas', stock: 9, min: 4, compra: 3.5, venta: 5.5 },
-  { nombre: 'Red Bull 250ml', categoria: 'Bebidas', stock: 12, min: 4, compra: 5.0, venta: 7.5 },
+  { nombre: 'Inca Kola 500ml', categoria: 'Bebidas', stock: 2, min: 6, compra: 1.3, venta: 1.8, proveedor: 'bebidas', unidadCompra: 'caja', factorCompra: 12 },
+  { nombre: 'Coca Cola 500ml', categoria: 'Bebidas', stock: 3, min: 6, compra: 7.7, venta: 11.0, proveedor: 'bebidas', unidadCompra: 'caja', factorCompra: 12 },
+  { nombre: 'Sporade 500ml', categoria: 'Bebidas', stock: 5, min: 6, compra: 1.1, venta: 1.5, proveedor: 'bebidas', unidadCompra: 'caja', factorCompra: 12 },
+  { nombre: 'Agua San Luis 625ml', categoria: 'Bebidas', stock: 24, min: 8, compra: 0.9, venta: 1.5, proveedor: 'bebidas', unidadCompra: 'paquete', factorCompra: 15 },
+  { nombre: 'Cifrut 300ml', categoria: 'Bebidas', stock: 18, min: 6, compra: 0.8, venta: 1.2, proveedor: 'bebidas', unidadCompra: 'caja', factorCompra: 12 },
+  { nombre: 'Pilsen 305ml', categoria: 'Bebidas', stock: 30, min: 12, compra: 3.2, venta: 5.0, proveedor: 'bebidas', unidadCompra: 'caja', factorCompra: 24 },
+  { nombre: 'Frugos del Valle 1L', categoria: 'Bebidas', stock: 9, min: 4, compra: 3.5, venta: 5.5, proveedor: 'bebidas' },
+  { nombre: 'Red Bull 250ml', categoria: 'Bebidas', stock: 12, min: 4, compra: 5.0, venta: 7.5, proveedor: 'bebidas' },
   // Abarrotes
-  { nombre: 'Arroz Costeño 1kg', categoria: 'Abarrotes', stock: 22, min: 8, compra: 3.5, venta: 4.8 },
-  { nombre: 'Azúcar Rubia 1kg', categoria: 'Abarrotes', stock: 0, min: 6, compra: 5.1, venta: 8.8 },
-  { nombre: 'Aceite Primor 1L', categoria: 'Abarrotes', stock: 14, min: 5, compra: 8.0, venta: 9.5 },
-  { nombre: 'Atún Florida lata', categoria: 'Abarrotes', stock: 3, min: 6, compra: 7.6, venta: 10.2 },
-  { nombre: 'Leche Gloria lata', categoria: 'Abarrotes', stock: 40, min: 12, compra: 3.4, venta: 4.5 },
-  { nombre: 'Fideos Don Vittorio 500g', categoria: 'Abarrotes', stock: 26, min: 8, compra: 2.6, venta: 3.6 },
-  { nombre: 'Lentejas 500g', categoria: 'Abarrotes', stock: 16, min: 5, compra: 3.0, venta: 4.4 },
-  { nombre: 'Sal Marina 1kg', categoria: 'Abarrotes', stock: 19, min: 5, compra: 1.2, venta: 2.0 },
-  { nombre: 'Harina Blanca Flor 1kg', categoria: 'Abarrotes', stock: 11, min: 5, compra: 3.8, venta: 5.2 },
-  { nombre: 'Pan de Molde Bimbo', categoria: 'Abarrotes', stock: 7, min: 4, compra: 5.5, venta: 7.5 },
+  { nombre: 'Arroz Costeño 1kg', categoria: 'Abarrotes', stock: 22, min: 8, compra: 3.5, venta: 4.8, proveedor: 'abarrotes', unidadCompra: 'saco', factorCompra: 25 },
+  { nombre: 'Azúcar Rubia 1kg', categoria: 'Abarrotes', stock: 0, min: 6, compra: 5.1, venta: 8.8, proveedor: 'abarrotes', unidadCompra: 'saco', factorCompra: 25 },
+  { nombre: 'Aceite Primor 1L', categoria: 'Abarrotes', stock: 14, min: 5, compra: 8.0, venta: 9.5, proveedor: 'abarrotes', unidadCompra: 'caja', factorCompra: 12 },
+  { nombre: 'Atún Florida lata', categoria: 'Abarrotes', stock: 3, min: 6, compra: 7.6, venta: 10.2, proveedor: 'abarrotes', unidadCompra: 'caja', factorCompra: 24 },
+  { nombre: 'Leche Gloria lata', categoria: 'Abarrotes', stock: 40, min: 12, compra: 3.4, venta: 4.5, proveedor: 'abarrotes', unidadCompra: 'caja', factorCompra: 24 },
+  { nombre: 'Fideos Don Vittorio 500g', categoria: 'Abarrotes', stock: 26, min: 8, compra: 2.6, venta: 3.6, proveedor: 'abarrotes', unidadCompra: 'paquete', factorCompra: 20 },
+  { nombre: 'Lentejas 500g', categoria: 'Abarrotes', stock: 16, min: 5, compra: 3.0, venta: 4.4, proveedor: 'abarrotes' },
+  { nombre: 'Sal Marina 1kg', categoria: 'Abarrotes', stock: 19, min: 5, compra: 1.2, venta: 2.0, proveedor: 'abarrotes' },
+  { nombre: 'Harina Blanca Flor 1kg', categoria: 'Abarrotes', stock: 11, min: 5, compra: 3.8, venta: 5.2, proveedor: 'abarrotes' },
+  { nombre: 'Pan de Molde Bimbo', categoria: 'Abarrotes', stock: 7, min: 4, compra: 5.5, venta: 7.5, proveedor: 'abarrotes' },
   // Limpieza
-  { nombre: 'Detergente Bolívar 780g', categoria: 'Limpieza', stock: 13, min: 5, compra: 5.2, venta: 7.5 },
-  { nombre: 'Lejía Clorox 1L', categoria: 'Limpieza', stock: 9, min: 4, compra: 2.8, venta: 4.2 },
-  { nombre: 'Papel Higiénico Elite x4', categoria: 'Limpieza', stock: 21, min: 6, compra: 4.4, venta: 8.0 },
-  { nombre: 'Jabón Bolívar barra', categoria: 'Limpieza', stock: 28, min: 8, compra: 1.6, venta: 2.5 },
-  { nombre: 'Lavavajilla Sapolio', categoria: 'Limpieza', stock: 4, min: 5, compra: 3.0, venta: 4.5 },
+  { nombre: 'Detergente Bolívar 780g', categoria: 'Limpieza', stock: 13, min: 5, compra: 5.2, venta: 7.5, proveedor: 'limpieza', unidadCompra: 'caja', factorCompra: 12 },
+  { nombre: 'Lejía Clorox 1L', categoria: 'Limpieza', stock: 9, min: 4, compra: 2.8, venta: 4.2, proveedor: 'limpieza' },
+  { nombre: 'Papel Higiénico Elite x4', categoria: 'Limpieza', stock: 21, min: 6, compra: 4.4, venta: 8.0, proveedor: 'limpieza' },
+  { nombre: 'Jabón Bolívar barra', categoria: 'Limpieza', stock: 28, min: 8, compra: 1.6, venta: 2.5, proveedor: 'limpieza' },
+  { nombre: 'Lavavajilla Sapolio', categoria: 'Limpieza', stock: 4, min: 5, compra: 3.0, venta: 4.5, proveedor: 'limpieza' },
   // Cuidado personal
-  { nombre: 'Cepillo Oral B', categoria: 'Cuidado personal', stock: 15, min: 5, compra: 3.0, venta: 5.5 },
-  { nombre: 'Desodorante Rexona', categoria: 'Cuidado personal', stock: 10, min: 4, compra: 6.5, venta: 9.5 },
-  { nombre: 'Shampoo Sedal 90ml', categoria: 'Cuidado personal', stock: 12, min: 4, compra: 2.8, venta: 4.5 },
+  { nombre: 'Cepillo Oral B', categoria: 'Cuidado personal', stock: 15, min: 5, compra: 3.0, venta: 5.5, proveedor: 'limpieza' },
+  { nombre: 'Desodorante Rexona', categoria: 'Cuidado personal', stock: 10, min: 4, compra: 6.5, venta: 9.5, proveedor: 'limpieza' },
+  { nombre: 'Shampoo Sedal 90ml', categoria: 'Cuidado personal', stock: 12, min: 4, compra: 2.8, venta: 4.5, proveedor: 'limpieza' },
   // Golosinas
-  { nombre: 'Galleta Soda Field', categoria: 'Golosinas', stock: 35, min: 10, compra: 0.7, venta: 1.2 },
-  { nombre: 'Chocolate Sublime', categoria: 'Golosinas', stock: 42, min: 12, compra: 1.0, venta: 1.8 },
-  { nombre: 'Halls Mentol', categoria: 'Golosinas', stock: 50, min: 15, compra: 0.8, venta: 1.5 },
-  { nombre: 'Lays Clásicas', categoria: 'Golosinas', stock: 17, min: 6, compra: 1.6, venta: 2.9 },
+  { nombre: 'Galleta Soda Field', categoria: 'Golosinas', stock: 35, min: 10, compra: 0.7, venta: 1.2, proveedor: 'golosinas', unidadCompra: 'caja', factorCompra: 30 },
+  { nombre: 'Chocolate Sublime', categoria: 'Golosinas', stock: 42, min: 12, compra: 1.0, venta: 1.8, proveedor: 'golosinas', unidadCompra: 'caja', factorCompra: 24 },
+  { nombre: 'Halls Mentol', categoria: 'Golosinas', stock: 50, min: 15, compra: 0.8, venta: 1.5, proveedor: 'golosinas' },
+  { nombre: 'Lays Clásicas', categoria: 'Golosinas', stock: 17, min: 6, compra: 1.6, venta: 2.9, proveedor: 'golosinas' },
 ]
 
 const NOMBRES_CLIENTES = ['Sra. Lucía (vecina)', 'Don Carlos', 'Rosa del 3er piso', 'Pedro taxista']
+
+const PROVEEDORES_DEMO = [
+  { key: 'bebidas', nombre: 'Distribuidora Andina', deuda_total: 240, dia_visita: 2 },
+  { key: 'abarrotes', nombre: 'Abarrotes El Mayorista', deuda_total: 0, dia_visita: 4 },
+  { key: 'limpieza', nombre: 'Limpieza y Cuidado Sur', deuda_total: 0, dia_visita: 5 },
+  { key: 'golosinas', nombre: 'Dulces La Esquina', deuda_total: 0, dia_visita: 1 },
+] as const
 
 function diasAtras(n: number): string {
   const d = new Date()
   d.setDate(d.getDate() - n)
   return d.toISOString()
+}
+
+type SupabaseSeed = Awaited<ReturnType<typeof getNegocioFromSession>>['supabase']
+type ProveedorDemoKey = (typeof PROVEEDORES_DEMO)[number]['key']
+
+async function asegurarProveedoresDemo(
+  supabase: SupabaseSeed,
+  negocioId: string
+): Promise<Map<ProveedorDemoKey, string>> {
+  const mapa = new Map<ProveedorDemoKey, string>()
+
+  for (const proveedor of PROVEEDORES_DEMO) {
+    const { data: existente, error: selectError } = await supabase
+      .from('proveedores')
+      .select('id')
+      .eq('negocio_id', negocioId)
+      .eq('nombre', proveedor.nombre)
+      .maybeSingle()
+
+    if (selectError) throw selectError
+
+    if (existente?.id) {
+      const { data: actualizado, error: updateError } = await supabase
+        .from('proveedores')
+        .update({
+          deuda_total: proveedor.deuda_total,
+          dia_visita: proveedor.dia_visita,
+          frecuencia_dias: 7,
+        })
+        .eq('id', existente.id)
+        .eq('negocio_id', negocioId)
+        .select('id')
+        .single()
+
+      if (updateError) throw updateError
+      mapa.set(proveedor.key, actualizado.id)
+      continue
+    }
+
+    const { data: creado, error: insertError } = await supabase
+      .from('proveedores')
+      .insert({
+        negocio_id: negocioId,
+        nombre: proveedor.nombre,
+        deuda_total: proveedor.deuda_total,
+        dia_visita: proveedor.dia_visita,
+        frecuencia_dias: 7,
+      })
+      .select('id')
+      .single()
+
+    if (insertError) throw insertError
+    mapa.set(proveedor.key, creado.id)
+  }
+
+  return mapa
+}
+
+async function actualizarProductosDemo(
+  supabase: SupabaseSeed,
+  negocioId: string,
+  proveedoresPorKey: Map<ProveedorDemoKey, string>
+) {
+  for (const producto of INVENTARIO) {
+    const proveedorId = proveedoresPorKey.get(producto.proveedor)
+    if (!proveedorId) continue
+
+    const { error } = await supabase
+      .from('productos')
+      .update({
+        proveedor_id: proveedorId,
+        unidad_compra: producto.unidadCompra ?? null,
+        factor_compra: producto.factorCompra ?? 1,
+      })
+      .eq('negocio_id', negocioId)
+      .eq('nombre', producto.nombre)
+
+    if (error) throw error
+  }
 }
 
 export async function POST() {
@@ -71,6 +160,9 @@ export async function POST() {
       .eq('negocio_id', negocio.id)
 
     if ((count ?? 0) > 0) {
+      const proveedoresPorKey = await asegurarProveedoresDemo(supabase, negocio.id)
+      await actualizarProductosDemo(supabase, negocio.id, proveedoresPorKey)
+
       // Aunque ya haya datos, regeneramos la explicación de la semana actual
       // para que use el formato nuevo (resumen + viñetas cortas) en la demo.
       try {
@@ -78,8 +170,13 @@ export async function POST() {
       } catch (saludErr) {
         console.error('[POST /api/seed] recalcularSalud (existente)', saludErr)
       }
-      return NextResponse.json({ mensaje: 'El negocio ya tiene datos. Explicación actualizada.', productos: count })
+      return NextResponse.json({
+        mensaje: 'El negocio ya tiene datos. Demo de Compra Inteligente actualizada.',
+        productos: count,
+      })
     }
+
+    const proveedoresPorKey = await asegurarProveedoresDemo(supabase, negocio.id)
 
     // ── Productos ──
     const { data: productos } = await supabase
@@ -95,6 +192,9 @@ export async function POST() {
           precio_venta: p.venta,
           unidad: 'unidades',
           activo: true,
+          proveedor_id: proveedoresPorKey.get(p.proveedor) ?? null,
+          unidad_compra: p.unidadCompra ?? null,
+          factor_compra: p.factorCompra ?? 1,
         }))
       )
       .select()
@@ -168,12 +268,6 @@ export async function POST() {
         creado_en: diasAtras(20 - i * 2),
       }))
     )
-
-    // ── Proveedores con deuda ("Debes") ──
-    await supabase.from('proveedores').insert([
-      { negocio_id: negocio.id, nombre: 'Distribuidora Andina', deuda_total: 240 },
-      { negocio_id: negocio.id, nombre: 'Abarrotes El Mayorista', deuda_total: 0 },
-    ])
 
     // Lunes (inicio de semana) de una fecha, para que las semanas del seed
     // coincidan con las que calcula el sistema en vivo (lunes a domingo).

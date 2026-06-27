@@ -50,7 +50,7 @@ export interface ContextoConversacion {
   datos_parciales?: Record<string, unknown>
   comprobante_pago?: {
     monto: number
-    medio_pago: MedioPago
+    medio_pago: MedioPago | null
     comprobante_url?: string | null
     operacion?: string | null
   }

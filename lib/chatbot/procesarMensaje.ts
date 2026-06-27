@@ -92,8 +92,14 @@ function construirContextoSistema(
   }
 
   if (estado.contexto.comprobante_pago) {
+    const comp = estado.contexto.comprobante_pago
+    const notaMedio =
+      comp.medio_pago == null
+        ? 'OJO: el medio de pago (Yape o Plin) NO se detectó; pregunta o deduce del mensaje del usuario si fue Yape o Plin y guárdalo en accion.datos.medio_pago. '
+        : ''
     partes.push(
-      `Comprobante de pago detectado: ${JSON.stringify(estado.contexto.comprobante_pago)}. ` +
+      `Comprobante de pago detectado: ${JSON.stringify(comp)}. ` +
+        notaMedio +
         'El usuario solo debe completar producto y cantidad; calcula precio_unit = monto / cantidad si falta.'
     )
   }

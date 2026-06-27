@@ -1,6 +1,7 @@
 import { guardarRespuestaMessageSid, reservarMessageSid } from '@/lib/chatbot/idempotencia'
 import { procesarMensaje } from '@/lib/chatbot/procesarMensaje'
-import { leerComprobantePago } from '@/lib/claude'
+import { analizarFotoVenta } from '@/lib/claude'
+import { etiquetaMedioPago } from '@/lib/medios-pago'
 import { cargarConversacion, guardarConversacion } from '@/lib/chatbot/contexto'
 import {
   descargarMediaTwilio,
@@ -117,44 +118,103 @@ export async function POST(request: NextRequest) {
 
       try {
         const media = await descargarMediaTwilio(mediaUrl, mediaContentType)
-        const comprobante = await leerComprobantePago(media.dataUrl)
-        if (!comprobante.monto || !comprobante.medio_pago) {
+        const analisis = await analizarFotoVenta(media.dataUrl)
+
+        // Boleta / lista de productos: se trata como venta, igual que la foto inteligente de la app.
+        if (analisis.tipo === 'productos') {
+          const items = analisis.productos
+            .map((p) => ({
+              producto: p.nombre,
+              cantidad: Number(p.cantidad) > 0 ? Number(p.cantidad) : 1,
+              ...(Number(p.precio_unit) > 0 ? { precio_unit: Number(p.precio_unit) } : {}),
+            }))
+            .filter((it) => it.producto.trim().length > 0)
+
+          if (!items.length) {
+            const respuesta = {
+              respuesta:
+                'No reconocí productos en esa foto. Envíame otra captura más nítida o escríbeme la venta.',
+            }
+            await guardarRespuestaMessageSid(supabase, messageSid, respuesta)
+            return NextResponse.json(respuesta)
+          }
+
+          const resumenItems = items
+            .map((it) => `• ${it.cantidad} x ${it.producto}`)
+            .join('\n')
+          const respuesta = {
+            respuesta: `Vi estos productos:\n${resumenItems}\n\n¿Registro esta venta?`,
+            botones: [
+              { id: 'confirmar', titulo: 'Sí' },
+              { id: 'cancelar', titulo: 'No' },
+            ],
+          }
+
+          const estado = await cargarConversacion(supabase, negocio.id, telefono)
+          await guardarConversacion(supabase, negocio.id, telefono, {
+            estado_flujo: 'esperando_confirmacion',
+            contexto: {
+              accion: { tipo: 'registrar_venta', datos: { items } },
+            },
+            historial: [
+              ...estado.historial,
+              { rol: 'usuario', texto: `Foto con productos: ${resumenItems.replace(/\n/g, ', ')}` },
+              { rol: 'asesor', texto: respuesta.respuesta },
+            ],
+          })
+
+          await guardarRespuestaMessageSid(supabase, messageSid, respuesta)
+          return NextResponse.json(respuesta)
+        }
+
+        // Comprobante de pago (Yape/Plin/tarjeta): basta con el monto.
+        const comprobante = analisis.comprobante
+        if (!comprobante.monto) {
           return NextResponse.json({
-            respuesta: 'No pude leer el monto o el medio de pago. Escríbeme la venta en texto, por favor.',
+            respuesta: 'No pude leer el monto del comprobante. Escríbeme la venta en texto, por favor.',
           })
         }
 
-        const path = `${negocio.user_id}/${negocio.id}/${Date.now()}.${media.extension}`
-        const { error: uploadError } = await supabase.storage
-          .from('comprobantes')
-          .upload(path, media.buffer, {
-            contentType: mediaContentType ?? `image/${media.extension === 'jpg' ? 'jpeg' : media.extension}`,
-            upsert: false,
-          })
-        if (uploadError) throw uploadError
+        // Subida best-effort: si falla, seguimos sin la imagen.
+        let comprobante_url: string | null = null
+        try {
+          const path = `${negocio.user_id}/${negocio.id}/${Date.now()}.${media.extension}`
+          const { error: uploadError } = await supabase.storage
+            .from('comprobantes')
+            .upload(path, media.buffer, {
+              contentType:
+                mediaContentType ?? `image/${media.extension === 'jpg' ? 'jpeg' : media.extension}`,
+              upsert: false,
+            })
+          if (uploadError) throw uploadError
+          comprobante_url = path
+        } catch (uploadErr) {
+          console.error('[POST /api/chatbot] subida comprobante', uploadErr)
+        }
 
         const estado = await cargarConversacion(supabase, negocio.id, telefono)
-        const textoComprobante = `Comprobante ${comprobante.medio_pago} por S/ ${comprobante.monto.toFixed(2)}`
+        const medio = comprobante.medio_pago
+        const textoComprobante = medio
+          ? `Comprobante ${medio} por S/ ${comprobante.monto.toFixed(2)}`
+          : `Comprobante por S/ ${comprobante.monto.toFixed(2)}`
+
         await guardarConversacion(supabase, negocio.id, telefono, {
           estado_flujo: 'esperando_datos',
           contexto: {
             intent: 'registrar_venta',
             datos_parciales: {
               total: comprobante.monto,
-              medio_pago: comprobante.medio_pago,
-              comprobante_url: path,
+              ...(medio ? { medio_pago: medio } : {}),
+              comprobante_url,
             },
             comprobante_pago: {
               monto: comprobante.monto,
-              medio_pago: comprobante.medio_pago,
-              comprobante_url: path,
+              medio_pago: medio,
+              comprobante_url,
               operacion: comprobante.operacion ?? null,
             },
           },
-          historial: [
-            ...estado.historial,
-            { rol: 'usuario', texto: textoComprobante },
-          ],
+          historial: [...estado.historial, { rol: 'usuario', texto: textoComprobante }],
         })
 
         if (mensaje.trim()) {
@@ -163,9 +223,17 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(resultado)
         }
 
-        const respuesta = {
-          respuesta: `Listo, recibí S/ ${comprobante.monto.toFixed(2)} por ${comprobante.medio_pago.toUpperCase()}. ¿Qué producto y cantidad vendiste?`,
-        }
+        const respuesta = medio
+          ? {
+              respuesta: `Listo, recibí S/ ${comprobante.monto.toFixed(2)} por ${etiquetaMedioPago(
+                medio
+              )}. ¿Qué producto y cantidad vendiste?`,
+            }
+          : {
+              respuesta: `Leí S/ ${comprobante.monto.toFixed(
+                2
+              )}. ¿Fue Yape o Plin, y qué producto/cantidad vendiste? (ej: "yape, 3 Inca Kola")`,
+            }
         await guardarRespuestaMessageSid(supabase, messageSid, respuesta)
         return NextResponse.json(respuesta)
       } catch (err) {

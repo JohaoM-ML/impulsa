@@ -8,6 +8,12 @@ export function colorPorSalud(indice: number): string {
   return '#dc2626'
 }
 
+export function emojiPorSalud(indice: number): { emoji: string; etiqueta: string } {
+  if (indice >= 70) return { emoji: '😄', etiqueta: 'Salud financiera buena' }
+  if (indice >= 40) return { emoji: '🙂', etiqueta: 'Salud financiera regular' }
+  return { emoji: '😟', etiqueta: 'Salud financiera baja' }
+}
+
 export function SaludCircular({
   indice,
   size = 150,

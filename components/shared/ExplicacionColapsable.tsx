@@ -20,16 +20,29 @@ export function ExplicacionColapsable({
 }) {
   const [abierto, setAbierto] = useState(false)
 
-  const limpio = texto.replace(/\s+/g, ' ').trim()
-  const primeraFrase = limpio.match(/^.*?[.!?](\s|$)/)?.[0]?.trim() ?? limpio
-  const hayMas = primeraFrase.length < limpio.length
+  const lineas = texto.replace(/\r\n/g, '\n').split('\n').map((l) => l.trim()).filter(Boolean)
+  const idxPrimerBullet = lineas.findIndex((l) => /^[-*]\s+/.test(l))
+
+  // Si la IA devolvió viñetas, el resumen es la(s) línea(s) antes de la primera viñeta.
+  // Si es un párrafo plano, el resumen es la primera frase.
+  let resumen: string
+  if (idxPrimerBullet > 0) {
+    resumen = lineas.slice(0, idxPrimerBullet).join('\n')
+  } else if (idxPrimerBullet === 0) {
+    resumen = lineas[0]
+  } else {
+    const limpio = texto.replace(/\s+/g, ' ').trim()
+    resumen = limpio.match(/^.*?[.!?](\s|$)/)?.[0]?.trim() ?? limpio
+  }
+
+  const hayMas = resumen.replace(/\s+/g, ' ').trim().length < texto.replace(/\s+/g, ' ').trim().length
 
   return (
     <div className={className}>
       {abierto ? (
         <TextoFormateado texto={texto} />
       ) : (
-        <TextoFormateado texto={primeraFrase} />
+        <TextoFormateado texto={resumen} />
       )}
 
       {hayMas && (
@@ -37,7 +50,7 @@ export function ExplicacionColapsable({
           type="button"
           onClick={() => setAbierto((v) => !v)}
           className={cn(
-            'mt-2 inline-flex items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline',
+            'mt-2 inline-flex items-center gap-1 text-sm font-semibold underline-offset-2 hover:underline',
             classNameBoton
           )}
         >

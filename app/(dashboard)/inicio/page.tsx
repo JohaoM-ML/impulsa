@@ -143,8 +143,8 @@ export default function InicioPage() {
               {(resumen?.indiceExplicacion ?? resumen?.scoreExplicacion) ? (
                 <ExplicacionColapsable
                   texto={resumen.indiceExplicacion ?? resumen.scoreExplicacion ?? ''}
-                  className="mt-1 text-xs text-white/80"
-                  classNameBoton="text-white"
+                  className="mt-1.5 text-sm leading-relaxed text-white/90"
+                  classNameBoton="text-white text-sm"
                 />
               ) : (
                 <p className="mt-1 text-xs text-white/80">

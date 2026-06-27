@@ -176,7 +176,12 @@ export async function generarExplicacionSalud(datos: {
   }
 }): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return `Tu salud financiera está en ${datos.indice}/100. Ventas: S/ ${datos.ventas.toFixed(2)}, gastos: S/ ${datos.gastos.toFixed(2)}.`
+    return [
+      `Tu salud financiera está en **${datos.indice}/100**.`,
+      `- Vendiste S/ ${datos.ventas.toFixed(2)} esta semana`,
+      `- Gastaste S/ ${datos.gastos.toFixed(2)}`,
+      `- Tu margen es de ${datos.margen.toFixed(1)}%`,
+    ].join('\n')
   }
 
   const lineaFiado =
@@ -196,17 +201,19 @@ export async function generarExplicacionSalud(datos: {
     messages: [
       {
         role: 'user',
-        content: `Eres un asesor cercano para bodegueros peruanos. Explica en 2-3 líneas simples la salud financiera de su negocio (NO es un score de banco, es un indicador propio de Impulsa):
+        content: `Eres un asesor cercano para bodegueros peruanos. Explica de forma muy simple la salud financiera de su negocio (NO es un score de banco, es un indicador propio de Impulsa):
 Índice: ${datos.indice}/100
 Ventas semana: S/ ${datos.ventas}
 Gastos semana (fijos ya prorrateados): S/ ${datos.gastos}
 Margen: ${datos.margen.toFixed(1)}%${lineaFiado}${lineaPilares}
 
-Reglas de formato:
-- Escribe en texto plano, NO uses encabezados con "#" ni listas.
-- Puedes resaltar como máximo 1 idea clave con **negritas**.
-- Tono cálido y motivador, sin términos técnicos.
-- Empieza directo con el mensaje, sin título.`,
+Formato OBLIGATORIO (es para un bodeguero de 45 años que lee en el celular):
+- Primera línea: UNA sola frase corta (máx 12 palabras) que resuma cómo está su negocio.
+- Luego escribe entre 2 y 4 viñetas, cada una empezando con "- ".
+- Cada viñeta: una sola idea, máximo 12 palabras, fácil de leer.
+- Mezcla 1 cosa buena y 1 consejo concreto para mejorar.
+- Resalta como máximo 1 palabra clave por viñeta con **negritas**.
+- Tono cálido y motivador, sin términos técnicos ni encabezados con "#".`,
       },
     ],
   })

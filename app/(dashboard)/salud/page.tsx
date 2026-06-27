@@ -13,7 +13,7 @@ import {
 import { FileText, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { SaludCircular } from '@/components/salud/SaludCircular'
+import { SaludCircular, emojiPorSalud } from '@/components/salud/SaludCircular'
 import { ExplicacionColapsable } from '@/components/shared/ExplicacionColapsable'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
@@ -139,15 +139,25 @@ export default function SaludPage() {
       />
 
       <Card className="border-0 bg-brand-dark text-white">
-        <CardContent className="flex flex-col items-center gap-2 p-6">
-          <SaludCircular
-            indice={actual.indice}
-            size={170}
-            grosor={14}
-            color="#f59e0b"
-            colorTexto="#ffffff"
-            colorPista="rgba(255,255,255,0.15)"
-          />
+        <CardContent className="flex flex-col items-center gap-3 p-6">
+          <div className="flex items-center justify-center gap-4">
+            <span
+              role="img"
+              aria-label={emojiPorSalud(actual.indice).etiqueta}
+              className="leading-none"
+              style={{ fontSize: 96 }}
+            >
+              {emojiPorSalud(actual.indice).emoji}
+            </span>
+            <SaludCircular
+              indice={actual.indice}
+              size={96}
+              grosor={9}
+              color="#f59e0b"
+              colorTexto="#ffffff"
+              colorPista="rgba(255,255,255,0.15)"
+            />
+          </div>
           {delta !== 0 && (
             <p className="flex items-center gap-1 text-sm font-medium text-emerald-300">
               <TrendingUp className="h-4 w-4" />

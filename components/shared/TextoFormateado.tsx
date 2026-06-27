@@ -26,15 +26,15 @@ export function TextoFormateado({ texto, className }: { texto: string; className
         const vineta = linea.match(/^[-*]\s+(.*)$/)
         if (vineta) {
           return (
-            <p key={i} className="flex gap-2 leading-snug">
-              <span className="text-amber-700">•</span>
+            <p key={i} className="flex gap-2 leading-relaxed [&:not(:first-child)]:mt-2">
+              <span aria-hidden className="mt-[0.45em] h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />
               <span>{renderInline(vineta[1])}</span>
             </p>
           )
         }
 
         return (
-          <p key={i} className="leading-snug [&:not(:first-child)]:mt-1.5">
+          <p key={i} className="leading-relaxed [&:not(:first-child)]:mt-2">
             {renderInline(linea)}
           </p>
         )

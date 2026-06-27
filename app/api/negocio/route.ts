@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getNegocioFromSession } from '@/lib/supabase/server'
 import { validarTelefonoPeru } from '@/lib/telefono'
 
+/** Focus group: bodegas / nanostores — no se pide rubro en el registro. */
+const RUBRO_DEFECTO = 'Bodega'
+
 export async function GET() {
   try {
     const { negocio, error } = await getNegocioFromSession()
@@ -25,14 +28,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(negocio)
     }
 
-    const { nombre, rubro } = await request.json()
+    const { nombre } = await request.json()
     if (!nombre?.trim()) {
       return NextResponse.json({ error: 'Nombre del negocio requerido' }, { status: 400 })
     }
 
     const { data: nuevoNegocio, error: negocioError } = await supabase
       .from('negocios')
-      .insert({ user_id: user.id, nombre: nombre.trim(), rubro: rubro?.trim() || null })
+      .insert({ user_id: user.id, nombre: nombre.trim(), rubro: RUBRO_DEFECTO })
       .select()
       .single()
 

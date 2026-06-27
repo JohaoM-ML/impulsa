@@ -8,36 +8,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { REGLAS_PASSWORD, fuerzaPassword, passwordEsValida, reglasCumplidas } from '@/lib/password'
 import { cn } from '@/lib/utils'
-
-const RUBROS = [
-  'Bodega',
-  'Minimarket',
-  'Farmacia / Botica',
-  'Ferretería',
-  'Restaurante / Comida',
-  'Ropa / Boutique',
-  'Librería / Bazar',
-  'Verdulería / Frutería',
-  'Carnicería / Avícola',
-  'Otro',
-]
 
 const COLOR_FUERZA = ['bg-muted', 'bg-destructive', 'bg-amber-500', 'bg-yellow-400', 'bg-primary']
 
 export default function RegistroPage() {
   const router = useRouter()
   const [nombre, setNombre] = useState('')
-  const [rubro, setRubro] = useState('Bodega')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [tocadoPassword, setTocadoPassword] = useState(false)
@@ -70,7 +49,7 @@ export default function RegistroPage() {
     const res = await fetch('/api/negocio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, rubro }),
+      body: JSON.stringify({ nombre }),
     })
 
     if (!res.ok) {
@@ -100,22 +79,6 @@ export default function RegistroPage() {
               placeholder="Mi bodega"
               required
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="rubro">Rubro</Label>
-            <Select value={rubro} onValueChange={setRubro}>
-              <SelectTrigger id="rubro">
-                <SelectValue placeholder="Elige tu rubro" />
-              </SelectTrigger>
-              <SelectContent>
-                {RUBROS.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-2">

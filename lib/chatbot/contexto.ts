@@ -40,7 +40,8 @@ export async function cargarConversacion(
     .maybeSingle()
 
   return {
-    estado_flujo: (data?.estado_flujo as EstadoConversacion['estado_flujo']) ?? 'idle',
+    estado_flujo:
+      (data?.estado_flujo as EstadoConversacion['estado_flujo']) ?? 'idle',
     contexto: (data?.contexto as EstadoConversacion['contexto']) ?? {},
     historial: Array.isArray(data?.historial) ? (data!.historial as TurnoHistorial[]) : [],
   }

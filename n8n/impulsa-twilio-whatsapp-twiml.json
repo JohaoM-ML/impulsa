@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body ?? $json;\nconst from = body.From ?? body.from ?? body.WaId ?? '';\nconst message = body.Body ?? body.body ?? body.ButtonText ?? body.ButtonPayload ?? '';\nreturn [{ json: { telefono: from, mensaje: message, tipo: 'text', twilioFrom: from } }];"
+        "jsCode": "const body = $json.body ?? $json;\nconst from = body.From ?? body.from ?? body.WaId ?? '';\nconst message = body.Body ?? body.body ?? body.ButtonText ?? body.ButtonPayload ?? '';\nconst messageSid = body.MessageSid ?? body.SmsMessageSid ?? '';\nconst messageType = (body.MessageType ?? '').toString().toLowerCase();\nconst numMedia = parseInt(String(body.NumMedia ?? '0'), 10) || 0;\nlet tipo = 'text';\nif (body.ButtonPayload || body.ButtonText) tipo = 'button_reply';\nelse if (messageType === 'audio' || (numMedia > 0 && String(body.MediaContentType0 ?? '').startsWith('audio'))) tipo = 'audio';\nconst out = { telefono: from, mensaje: message, tipo, messageSid, twilioFrom: from };\nif (tipo === 'audio' && body.MediaUrl0) {\n  out.mediaUrl = body.MediaUrl0;\n  out.mediaContentType = body.MediaContentType0 ?? 'audio/ogg';\n}\nreturn [{ json: out }];"
       },
       "id": "normalizar-entrada",
       "name": "Normalizar entrada Twilio",
@@ -29,13 +29,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.APP_URL }}/api/chatbot",
+        "url": "https://impulsa-kappa.vercel.app/api/chatbot",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-n8n-secret",
-              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+              "value": "CONFIGURE_IN_N8N"
             },
             {
               "name": "Content-Type",
@@ -45,7 +45,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"telefono\": \"{{ $json.telefono }}\",\n  \"mensaje\": \"{{ $json.mensaje }}\",\n  \"tipo\": \"{{ $json.tipo }}\"\n}",
+        "jsonBody": "={{ { \"telefono\": $json.telefono, \"mensaje\": $json.mensaje, \"tipo\": $json.tipo, \"messageSid\": $json.messageSid, \"mediaUrl\": $json.mediaUrl, \"mediaContentType\": $json.mediaContentType } }}",
         "options": {}
       },
       "id": "llamar-api-chatbot",

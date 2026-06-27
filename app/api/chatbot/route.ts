@@ -1,5 +1,7 @@
+import { guardarRespuestaMessageSid, reservarMessageSid } from '@/lib/chatbot/idempotencia'
 import { procesarMensaje } from '@/lib/chatbot/procesarMensaje'
-import type { TipoMensajeChatbot } from '@/lib/chatbot/tipos'
+import { transcribirMediaTwilio, twilioMediaConfigurado } from '@/lib/chatbot/twilio-media'
+import type { RequestChatbot, TipoMensajeChatbot } from '@/lib/chatbot/tipos'
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -11,6 +13,12 @@ function normalizarTelefono(raw: string): string {
     .replace(/\D/g, '')
 }
 
+function parseTipo(body: Record<string, unknown>): TipoMensajeChatbot {
+  const t = body.tipo
+  if (t === 'button_reply' || t === 'image' || t === 'audio') return t
+  return 'text'
+}
+
 export async function POST(request: NextRequest) {
   try {
     const secret = request.headers.get('x-n8n-secret')
@@ -18,11 +26,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const body = await request.json()
+    const body = (await request.json()) as RequestChatbot & Record<string, unknown>
     const telefono = typeof body.telefono === 'string' ? normalizarTelefono(body.telefono) : ''
-    const mensaje = typeof body.mensaje === 'string' ? body.mensaje : ''
-    const tipo: TipoMensajeChatbot =
-      body.tipo === 'button_reply' || body.tipo === 'image' ? body.tipo : 'text'
+    let mensaje = typeof body.mensaje === 'string' ? body.mensaje : ''
+    const tipo = parseTipo(body)
+    const messageSid =
+      typeof body.messageSid === 'string'
+        ? body.messageSid
+        : typeof body.MessageSid === 'string'
+          ? body.MessageSid
+          : undefined
+    const mediaUrl = typeof body.mediaUrl === 'string' ? body.mediaUrl : undefined
+    const mediaContentType =
+      typeof body.mediaContentType === 'string' ? body.mediaContentType : undefined
 
     if (!telefono) {
       return NextResponse.json({ respuesta: 'No pude identificar tu número. Intenta de nuevo.' })
@@ -43,7 +59,45 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    const { duplicado, respuesta: respuestaCacheada } = await reservarMessageSid(
+      supabase,
+      negocio.id,
+      telefono,
+      messageSid
+    )
+    if (duplicado && respuestaCacheada) {
+      return NextResponse.json(respuestaCacheada)
+    }
+
+    if (tipo === 'audio') {
+      if (!mediaUrl) {
+        return NextResponse.json({
+          respuesta: 'Recibí un audio pero no pude abrirlo. Escríbeme la venta en texto.',
+        })
+      }
+      if (!twilioMediaConfigurado()) {
+        return NextResponse.json({
+          respuesta:
+            'Por ahora no puedo escuchar audios por WhatsApp. Escríbeme la venta en texto.',
+        })
+      }
+      try {
+        mensaje = await transcribirMediaTwilio(mediaUrl, mediaContentType)
+      } catch (err) {
+        console.error('[POST /api/chatbot] transcribir audio', err)
+        return NextResponse.json({
+          respuesta: 'No pude entender el audio. ¿Me lo escribes en texto?',
+        })
+      }
+      if (!mensaje.trim()) {
+        return NextResponse.json({
+          respuesta: 'El audio sonó vacío. ¿Me repites la venta en texto?',
+        })
+      }
+    }
+
     const resultado = await procesarMensaje(negocio, telefono, mensaje, tipo)
+    await guardarRespuestaMessageSid(supabase, messageSid, resultado)
     return NextResponse.json(resultado)
   } catch (error) {
     console.error('[POST /api/chatbot]', error)

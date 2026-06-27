@@ -3,7 +3,7 @@ import type { Nivel } from '@/lib/vocabulario'
 
 export type ServiceClient = ReturnType<typeof createServiceClient>
 
-export type TipoMensajeChatbot = 'text' | 'button_reply' | 'image'
+export type TipoMensajeChatbot = 'text' | 'button_reply' | 'image' | 'audio'
 
 export type TipoAccion =
   | 'registrar_venta'
@@ -40,10 +40,25 @@ export interface TurnoHistorial {
   texto: string
 }
 
+export interface ContextoConversacion {
+  accion?: { tipo: TipoAccion; datos: Record<string, unknown> }
+  datos_parciales?: Record<string, unknown>
+  intent?: TipoAccion
+}
+
 export interface EstadoConversacion {
-  estado_flujo: 'idle' | 'esperando_confirmacion'
-  contexto: { accion?: { tipo: TipoAccion; datos: Record<string, unknown> } }
+  estado_flujo: 'idle' | 'esperando_datos' | 'esperando_confirmacion'
+  contexto: ContextoConversacion
   historial: TurnoHistorial[]
+}
+
+export interface RequestChatbot {
+  telefono: string
+  mensaje: string
+  tipo: TipoMensajeChatbot
+  messageSid?: string
+  mediaUrl?: string
+  mediaContentType?: string
 }
 
 export interface ContextoNegocio {

@@ -8,22 +8,26 @@ n8n **solo orquesta mensajería**. Toda la lógica del asesor vive en `/api/chat
 |-------|-------|
 | Nombre | Impulsa - Twilio WhatsApp -> Chatbot |
 | ID | `OPtPg15r4ASjgWKh` |
-| Estado | Activo |
+| Estado | Activo y verificado end-to-end |
 | Instancia | [impulsa12121.app.n8n.cloud](https://impulsa12121.app.n8n.cloud/workflow/OPtPg15r4ASjgWKh) |
 | Webhook (POST) | `https://impulsa12121.app.n8n.cloud/webhook/impulsa-twilio-whatsapp` |
+| App Vercel | `https://impulsa-kappa.vercel.app` |
+| Negocio de prueba | `Bodeguita` (`telefono_wsp = 51924128677`) |
 
-Fuente versionada en git: [`impulsa-twilio-whatsapp-twiml.json`](./impulsa-twilio-whatsapp-twiml.json)
+Fuente versionada en git: [`impulsa-twilio-whatsapp-twiml.json`](./impulsa-twilio-whatsapp-twiml.json).
+El workflow desplegado tiene la URL de Vercel y el header `x-n8n-secret` configurados directamente en el nodo HTTP. No versionar el valor completo del secreto.
 
 ## Flujo
 
 ```
-Twilio (WhatsApp) ──POST──► n8n Webhook
+WhatsApp del usuario ──► Twilio Sandbox ──POST──► n8n Webhook
                                   │
                                   ▼
                           Normalizar (From, Body)
                                   │
                                   ▼
-                     POST {APP_URL}/api/chatbot  (x-n8n-secret)
+                     POST https://impulsa-kappa.vercel.app/api/chatbot
+                     Header: x-n8n-secret
                                   │
                                   ▼
                           Armar TwiML <Message>
@@ -34,14 +38,32 @@ Twilio (WhatsApp) ──POST──► n8n Webhook
 
 No requiere credenciales de Twilio dentro de n8n: la respuesta va en TwiML y Twilio la entrega al usuario.
 
-## Variables en n8n (Settings → Variables o env del contenedor)
+## Configuración real en n8n
 
-| Variable n8n | Debe coincidir con | Uso |
-|--------------|-------------------|-----|
-| `APP_URL` | `NEXT_PUBLIC_APP_URL` de la app | Base URL de Next.js (sin `/` final) |
-| `N8N_WEBHOOK_SECRET` | `N8N_WEBHOOK_SECRET` de `.env.local` | Header `x-n8n-secret` hacia `/api/chatbot` |
+En n8n Cloud el workflow quedó configurado sin depender de `$env`:
 
-Si `/api/chatbot` responde 401, el secreto no coincide entre n8n y la app.
+| Nodo | Parámetro | Valor |
+|------|-----------|-------|
+| `Twilio WhatsApp Inbound` | Method | `POST` |
+| `Twilio WhatsApp Inbound` | Path | `impulsa-twilio-whatsapp` |
+| `Llamar a /api/chatbot` | URL | `https://impulsa-kappa.vercel.app/api/chatbot` |
+| `Llamar a /api/chatbot` | Body | `telefono`, `mensaje`, `tipo`, `messageSid`, `mediaUrl?`, `mediaContentType?` |
+| `Responder a Twilio` | Content-Type | `text/xml` |
+
+El header `x-n8n-secret` debe coincidir con `N8N_WEBHOOK_SECRET` en Vercel. Si `/api/chatbot` responde 401, el secreto no coincide.
+
+## Estado verificado
+
+| Check | Resultado |
+|-------|-----------|
+| Usuario unido al sandbox | OK: `+51 924 128 677` |
+| Webhook Twilio → n8n | OK |
+| n8n → Vercel `/api/chatbot` | OK |
+| Supabase `telefono_wsp` | OK: `51924128677` en negocio `Bodeguita` |
+| Ejecución real n8n | OK: modo `webhook`, status `success` |
+| Memoria `conversaciones_wsp` | Tabla creada en Supabase |
+| Idempotencia `messageSid` | Tabla `mensajes_wsp_procesados` |
+| Audio WhatsApp | Requiere `TWILIO_API_KEY_*` + `OPENAI_API_KEY` en Vercel |
 
 ## Configuración en Twilio
 
@@ -49,8 +71,11 @@ Si `/api/chatbot` responde 401, el secreto no coincide entre n8n y la app.
 2. Campo **"When a message comes in"** → pegar la Production URL del webhook:
    `https://impulsa12121.app.n8n.cloud/webhook/impulsa-twilio-whatsapp`
 3. Método: **POST**.
+4. Guardar con **Save**.
 
 Twilio envía `From=whatsapp:+51...` y `Body=texto`. El nodo Code los traduce al contrato de la API.
+
+Para probar con sandbox, cada teléfono debe unirse primero enviando el código `join ...` que muestra Twilio. El número de prueba actual es `+51 924 128 677`.
 
 ## Contrato `/api/chatbot`
 
@@ -67,8 +92,8 @@ Con Twilio, los botones se muestran como opciones de texto al final del mensaje 
 ## Variables en Next.js (`.env.local`)
 
 ```env
-N8N_WEBHOOK_SECRET=          # mismo valor que en n8n
-NEXT_PUBLIC_APP_URL=           # URL pública de la app (Vercel o túnel en local)
+N8N_WEBHOOK_SECRET=          # mismo valor configurado en el nodo HTTP de n8n
+NEXT_PUBLIC_APP_URL=https://impulsa-kappa.vercel.app
 ```
 
 Opcional para otras integraciones Twilio (no usadas por el workflow n8n actual):

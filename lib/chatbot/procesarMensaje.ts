@@ -9,6 +9,7 @@ import {
   guardarConversacion,
 } from '@/lib/chatbot/contexto'
 import { ejecutarAccion, esAccionDeEscritura } from '@/lib/chatbot/acciones'
+import { accionDatosCompletos, limpiarDatosAccion } from '@/lib/chatbot/validacion'
 import type {
   AccionChatbot,
   EstadoConversacion,
@@ -19,7 +20,6 @@ import type {
 
 const NOMBRES_NIVEL = ['', 'Bodeguero', 'Emprendedor', 'Comerciante', 'Empresario']
 
-/** Convierte el id de un botón en un texto natural para el agente. */
 function textoDeMensaje(mensaje: string, tipo: TipoMensajeChatbot): string {
   if (tipo !== 'button_reply') return mensaje
   if (mensaje === 'confirmar') return 'Sí, confirmo.'
@@ -27,7 +27,6 @@ function textoDeMensaje(mensaje: string, tipo: TipoMensajeChatbot): string {
   return mensaje
 }
 
-/** Extrae el primer objeto JSON de la respuesta del modelo. */
 function parsearSalida(texto: string): ResponseChatbot | null {
   const inicio = texto.indexOf('{')
   const fin = texto.lastIndexOf('}')
@@ -47,27 +46,39 @@ function construirContextoSistema(
   resumen: string,
   estado: EstadoConversacion
 ): string {
-  const pendiente = estado.contexto.accion
-    ? `Hay una acción PENDIENTE de confirmar: ${JSON.stringify(estado.contexto.accion)}. ` +
-      `Si el usuario confirma, responde con accion.estado="confirmada".`
-    : 'No hay ninguna acción pendiente de confirmar.'
+  const partes: string[] = []
+
+  if (estado.contexto.datos_parciales && Object.keys(estado.contexto.datos_parciales).length) {
+    partes.push(
+      `Datos PARCIALES acumulados (continúa desde aquí, no reinicies): ${JSON.stringify(estado.contexto.datos_parciales)}`
+    )
+  }
+
+  if (estado.contexto.accion) {
+    partes.push(
+      `Hay una acción PENDIENTE de confirmar: ${JSON.stringify(estado.contexto.accion)}. ` +
+        `Si el usuario confirma, responde con accion.estado="confirmada".`
+    )
+  } else if (estado.estado_flujo === 'esperando_datos') {
+    partes.push(
+      'Estás esperando que el usuario complete datos faltantes (precio, producto, etc.). ' +
+        'NO pidas confirmación con botones hasta tener todo completo.'
+    )
+  } else {
+    partes.push('No hay ninguna acción pendiente de confirmar.')
+  }
 
   return `${SYSTEM_PROMPT_ASESOR}
 
 # CONTEXTO ACTUAL (datos reales, úsalos y no inventes)
 Nivel del dueño: ${nivel} (${NOMBRES_NIVEL[nivel] ?? 'Bodeguero'})
 Estado de la conversación: ${estado.estado_flujo}
-${pendiente}
+${partes.join('\n')}
 
 RESUMEN DEL NEGOCIO:
 ${resumen}`
 }
 
-/**
- * Procesa un mensaje entrante de WhatsApp con el asesor de Impulsa.
- * Orquesta: contexto real del negocio + Claude + máquina de estados de
- * confirmación + escritura en Supabase (solo cuando el usuario confirma).
- */
 export async function procesarMensaje(
   negocio: Negocio,
   telefono: string,
@@ -84,7 +95,21 @@ export async function procesarMensaje(
 
   const textoUsuario = textoDeMensaje(mensaje, tipo)
 
-  // Sin API key: degradar con elegancia, sin tocar la base de datos.
+  if (tipo === 'button_reply' && mensaje === 'cancelar') {
+    const respuesta = 'Listo, cancelado. ¿En qué más te ayudo?'
+    const nuevoEstado: EstadoConversacion = {
+      estado_flujo: 'idle',
+      contexto: {},
+      historial: [
+        ...estado.historial,
+        { rol: 'usuario', texto: textoUsuario },
+        { rol: 'asesor', texto: respuesta },
+      ],
+    }
+    await guardarConversacion(supabase, negocio.id, telefono, nuevoEstado)
+    return { respuesta }
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
       respuesta: `Hola ${negocio.nombre}, te leo. Por ahora no puedo procesar tu mensaje, inténtalo más tarde.`,
@@ -120,7 +145,11 @@ export async function procesarMensaje(
   const accion: AccionChatbot | undefined = parsed.accion
   let respuestaFinal = parsed.respuesta
   let botones = parsed.botones
-  const nuevoEstado: EstadoConversacion = { estado_flujo: 'idle', contexto: {}, historial: estado.historial }
+  const nuevoEstado: EstadoConversacion = {
+    estado_flujo: 'idle',
+    contexto: {},
+    historial: estado.historial,
+  }
 
   const pendiente = estado.contexto.accion
   const confirmando =
@@ -134,19 +163,50 @@ export async function procesarMensaje(
     if (!resultado.ok) respuestaFinal = `${resultado.resumen} ¿Lo intentamos de nuevo?`
     botones = undefined
   } else if (accion?.estado === 'confirmada' && esAccionDeEscritura(accion.tipo)) {
-    // Confirmación en un solo turno (sin pendiente previo).
     const resultado = await ejecutarAccion(supabase, negocio, accion.tipo, accion.datos ?? {})
     if (!resultado.ok) respuestaFinal = `${resultado.resumen} ¿Lo intentamos de nuevo?`
     botones = undefined
   } else if (accion?.estado === 'pendiente_confirmacion' && esAccionDeEscritura(accion.tipo)) {
-    // Guardar acción pendiente y pedir confirmación.
-    nuevoEstado.estado_flujo = 'esperando_confirmacion'
-    nuevoEstado.contexto = { accion: { tipo: accion.tipo, datos: accion.datos ?? {} } }
-    if (!botones?.length) {
+    const datos = limpiarDatosAccion(accion.datos ?? {})
+    const completos = accionDatosCompletos(accion.tipo, datos)
+
+    if (!completos) {
+      nuevoEstado.estado_flujo = 'esperando_datos'
+      nuevoEstado.contexto = {
+        datos_parciales: datos,
+        intent: accion.tipo,
+      }
+      botones = undefined
+    } else {
+      nuevoEstado.estado_flujo = 'esperando_confirmacion'
+      nuevoEstado.contexto = { accion: { tipo: accion.tipo, datos } }
+      if (!botones?.length) {
+        botones = [
+          { id: 'confirmar', titulo: 'Sí' },
+          { id: 'cancelar', titulo: 'No' },
+        ]
+      }
+    }
+  } else if (
+    estado.estado_flujo === 'esperando_datos' &&
+    accion &&
+    esAccionDeEscritura(accion.tipo)
+  ) {
+    const merged = limpiarDatosAccion({
+      ...(estado.contexto.datos_parciales ?? {}),
+      ...(accion.datos ?? {}),
+    })
+    if (accionDatosCompletos(accion.tipo, merged)) {
+      nuevoEstado.estado_flujo = 'esperando_confirmacion'
+      nuevoEstado.contexto = { accion: { tipo: accion.tipo, datos: merged } }
       botones = [
         { id: 'confirmar', titulo: 'Sí' },
         { id: 'cancelar', titulo: 'No' },
       ]
+    } else {
+      nuevoEstado.estado_flujo = 'esperando_datos'
+      nuevoEstado.contexto = { datos_parciales: merged, intent: accion.tipo }
+      botones = undefined
     }
   }
 

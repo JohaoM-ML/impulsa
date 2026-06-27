@@ -10,13 +10,14 @@ import { EstadoError } from '@/components/estados/EstadoError'
 import { BarraXP } from '@/components/nivel/BarraXP'
 import { TextoFormateado } from '@/components/shared/TextoFormateado'
 import { PasoContacto } from '@/components/onboarding/PasoContacto'
+import { PasoMediosPago } from '@/components/onboarding/PasoMediosPago'
 import { PasoGastosFijos } from '@/components/onboarding/PasoGastosFijos'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { calcularNivel } from '@/lib/nivel'
 import { NOMBRES_NIVEL, type Nivel } from '@/lib/vocabulario'
 import type { OpcionOnboarding, PreguntaOnboarding } from '@/types'
 
-type EtapaOnboarding = 'contacto' | 'gastos' | 'quiz' | 'resultado'
+type EtapaOnboarding = 'contacto' | 'medios_pago' | 'gastos' | 'quiz' | 'resultado'
 
 interface ResultadoOnboarding {
   nivel_nuevo: Nivel
@@ -206,15 +207,21 @@ export default function OnboardingPage() {
         title={
           etapa === 'contacto'
             ? 'Conectemos tu WhatsApp'
-            : etapa === 'gastos'
-              ? 'Tus gastos fijos'
-              : 'Conozcamos tu negocio'
+            : etapa === 'medios_pago'
+              ? 'Tus medios de pago'
+              : etapa === 'gastos'
+                ? 'Tus gastos fijos'
+                : 'Conozcamos tu negocio'
         }
         description="Responde rápido para adaptar Impulsa a tu forma de trabajar."
       />
 
       {etapa === 'contacto' && (
-        <PasoContacto onContinuar={() => setEtapa('gastos')} />
+        <PasoContacto onContinuar={() => setEtapa('medios_pago')} />
+      )}
+
+      {etapa === 'medios_pago' && (
+        <PasoMediosPago onContinuar={() => setEtapa('gastos')} />
       )}
 
       {etapa === 'gastos' && (

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, Mic, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Camera, Mic, Pencil, Plus, Trash2, WalletCards } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,9 +23,10 @@ import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { toast } from '@/hooks/use-toast'
 import { matchProductoInventario, productosSinInventario } from '@/lib/inventario-match'
+import { etiquetaMedioPago, MEDIOS_PAGO, normalizarMediosPago } from '@/lib/medios-pago'
 import { formatSoles } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { OCRProductoDetectado, Producto } from '@/types'
+import type { ComprobantePagoDetectado, MedioPago, OCRProductoDetectado, Producto } from '@/types'
 
 type Tipo = 'venta' | 'compra'
 
@@ -33,15 +34,24 @@ interface LineaManual extends OCRProductoDetectado {
   producto_id?: string | null
 }
 
+interface ComprobanteVenta extends ComprobantePagoDetectado {
+  comprobante_url: string
+}
+
 export default function RegistrarPage() {
   const router = useRouter()
   const [tipo, setTipo] = useState<Tipo>('venta')
   const [inventario, setInventario] = useState<Producto[]>([])
+  const [mediosAceptados, setMediosAceptados] = useState<MedioPago[]>(['efectivo'])
+  const [medioPago, setMedioPago] = useState<MedioPago>('efectivo')
   const [detectados, setDetectados] = useState<OCRProductoDetectado[] | null>(null)
   const [textoRaw, setTextoRaw] = useState('')
+  const [comprobanteVenta, setComprobanteVenta] = useState<ComprobanteVenta | null>(null)
+  const [comprobanteProductoId, setComprobanteProductoId] = useState('')
+  const [comprobanteNombre, setComprobanteNombre] = useState('')
+  const [comprobanteCantidad, setComprobanteCantidad] = useState('1')
   const [procesando, setProcesando] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [cargandoDemo, setCargandoDemo] = useState(false)
   const [pendientesInventario, setPendientesInventario] = useState<{
     items: OCRProductoDetectado[]
     nuevos: OCRProductoDetectado[]
@@ -56,8 +66,17 @@ export default function RegistrarPage() {
 
   const cargarInventario = useCallback(async () => {
     try {
-      const res = await fetch('/api/inventario')
-      if (res.ok) setInventario(await res.json())
+      const [inventarioRes, negocioRes] = await Promise.all([
+        fetch('/api/inventario'),
+        fetch('/api/negocio'),
+      ])
+      if (inventarioRes.ok) setInventario(await inventarioRes.json())
+      if (negocioRes.ok) {
+        const negocio = await negocioRes.json()
+        const medios = normalizarMediosPago(negocio.medios_pago)
+        setMediosAceptados(medios)
+        setMedioPago((actual) => (medios.includes(actual) ? actual : medios[0]))
+      }
     } catch {
       /* inventario opcional */
     }
@@ -67,31 +86,10 @@ export default function RegistrarPage() {
     cargarInventario()
   }, [cargarInventario])
 
-  async function cargarDemoInventario() {
-    setCargandoDemo(true)
-    try {
-      const res = await fetch('/api/seed', { method: 'POST' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'No se pudo cargar la demo')
-      await cargarInventario()
-      toast({
-        title: 'Inventario demo listo',
-        description: 'Ya puedes registrar ventas cruzadas con tu stock.',
-      })
-    } catch (e) {
-      toast({
-        title: 'Error',
-        description: e instanceof Error ? e.message : 'Error',
-        variant: 'destructive',
-      })
-    } finally {
-      setCargandoDemo(false)
-    }
-  }
-
   // ── Procesar foto ──
   async function procesarFoto(base64: string) {
     setProcesando(true)
+    setComprobanteVenta(null)
     try {
       const res = await fetch('/api/ia/extraer-foto', {
         method: 'POST',
@@ -113,9 +111,43 @@ export default function RegistrarPage() {
     }
   }
 
+  async function procesarComprobante(base64: string) {
+    setProcesando(true)
+    setDetectados(null)
+    try {
+      const res = await fetch('/api/ia/leer-comprobante', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imagen: base64 }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'No se pudo leer el comprobante')
+      if (!data.monto || !data.medio_pago || !data.comprobante_url) {
+        toast({
+          title: 'No pude leer el comprobante',
+          description: 'Prueba otra captura o registra la venta manual.',
+          variant: 'destructive',
+        })
+        return
+      }
+      const comprobante = data as ComprobanteVenta
+      setComprobanteVenta(comprobante)
+      setMedioPago(comprobante.medio_pago ?? 'efectivo')
+      toast({
+        title: `${etiquetaMedioPago(comprobante.medio_pago)} detectado`,
+        description: formatSoles(comprobante.monto ?? 0),
+      })
+    } catch (e) {
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })
+    } finally {
+      setProcesando(false)
+    }
+  }
+
   // ── Procesar voz ──
   async function procesarVoz(blob: Blob) {
     setProcesando(true)
+    setComprobanteVenta(null)
     try {
       const fd = new FormData()
       fd.append('audio', blob, 'audio.webm')
@@ -167,7 +199,12 @@ export default function RegistrarPage() {
         const res = await fetch('/api/ventas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: itemsVenta }),
+          body: JSON.stringify({
+            items: itemsVenta,
+            medio_pago: comprobanteVenta?.medio_pago ?? medioPago,
+            comprobante_url: comprobanteVenta?.comprobante_url ?? null,
+            total: comprobanteVenta?.monto ?? undefined,
+          }),
         })
         if (!res.ok) {
           const d = await res.json().catch(() => ({}))
@@ -189,6 +226,10 @@ export default function RegistrarPage() {
       }
 
       setDetectados(null)
+      setComprobanteVenta(null)
+      setComprobanteProductoId('')
+      setComprobanteNombre('')
+      setComprobanteCantidad('1')
       setCarrito([])
       setTextoRaw('')
       setPendientesInventario(null)
@@ -263,6 +304,7 @@ export default function RegistrarPage() {
   }
 
   function agregarLinea() {
+    setComprobanteVenta(null)
     const prod = inventario.find((p) => p.id === selProductoId)
     const nombre = selProductoId === 'otro' || !prod ? nombreLibre.trim() : prod.nombre
     const cant = parseFloat(cantidad) || 0
@@ -279,6 +321,25 @@ export default function RegistrarPage() {
     setNombreLibre('')
     setCantidad('1')
     setPrecio('')
+  }
+
+  function confirmarComprobanteProducto() {
+    if (!comprobanteVenta?.monto || comprobanteVenta.monto <= 0) return
+    const prod = inventario.find((p) => p.id === comprobanteProductoId)
+    const nombre =
+      comprobanteProductoId === 'otro' || !prod ? comprobanteNombre.trim() : prod.nombre
+    const cant = parseFloat(comprobanteCantidad) || 0
+    if (!nombre || cant <= 0) {
+      toast({ title: 'Faltan datos', description: 'Agrega producto y cantidad', variant: 'destructive' })
+      return
+    }
+    setDetectados([
+      {
+        nombre,
+        cantidad: cant,
+        precio_unit: Math.round((comprobanteVenta.monto / cant) * 100) / 100,
+      },
+    ])
   }
 
   const totalCarrito = carrito.reduce((s, l) => s + l.cantidad * (l.precio_unit ?? 0), 0)
@@ -341,13 +402,30 @@ export default function RegistrarPage() {
 
       {inventario.length === 0 && (
         <Card className="border-amber-300 bg-amber-50">
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="p-4">
             <p className="text-sm font-medium text-amber-900">
-              Tu inventario está vacío. Carga la demo para que las ventas crucen con productos reales.
+              Tu inventario está vacío. Registra una compra o agrega productos para que las ventas crucen con stock real.
             </p>
-            <Button className="w-full min-h-[48px]" disabled={cargandoDemo} onClick={cargarDemoInventario}>
-              {cargandoDemo ? 'Cargando demo...' : 'Cargar inventario demo'}
-            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {tipo === 'venta' && (
+        <Card>
+          <CardContent className="space-y-2 p-4">
+            <Label>Medio de pago</Label>
+            <Select value={medioPago} onValueChange={(v) => setMedioPago(v as MedioPago)}>
+              <SelectTrigger className="min-h-[48px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MEDIOS_PAGO.filter((m) => mediosAceptados.includes(m.value)).map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
       )}
@@ -357,6 +435,11 @@ export default function RegistrarPage() {
           <TabsTrigger value="foto">
             <Camera className="h-4 w-4" /> Foto
           </TabsTrigger>
+          {tipo === 'venta' && (
+            <TabsTrigger value="comprobante">
+              <WalletCards className="h-4 w-4" /> Yape/Plin
+            </TabsTrigger>
+          )}
           <TabsTrigger value="voz">
             <Mic className="h-4 w-4" /> Voz
           </TabsTrigger>
@@ -370,6 +453,85 @@ export default function RegistrarPage() {
           <ChaskiHint texto="Saca foto a la boleta o lista y yo extraigo los productos. ¡Listo!" />
           <CamaraGuia onCaptura={procesarFoto} />
         </TabsContent>
+
+        {tipo === 'venta' && (
+          <TabsContent value="comprobante" className="space-y-3">
+            <ChaskiHint texto="Sube la captura de Yape o Plin. Yo leo el monto; tú solo completas producto y cantidad." />
+            {!comprobanteVenta ? (
+              <CamaraGuia onCaptura={procesarComprobante} />
+            ) : (
+              <Card>
+                <CardContent className="space-y-3 p-4">
+                  <div className="rounded-2xl bg-brand-tint p-3">
+                    <p className="text-sm font-semibold text-brand-dark">
+                      {etiquetaMedioPago(comprobanteVenta.medio_pago)} detectado
+                    </p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatSoles(comprobanteVenta.monto ?? 0)}
+                    </p>
+                    {comprobanteVenta.operacion && (
+                      <p className="text-xs text-muted-foreground">
+                        Operación: {comprobanteVenta.operacion}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Producto vendido</Label>
+                    <Select value={comprobanteProductoId} onValueChange={setComprobanteProductoId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Elige un producto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {inventario.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.nombre}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="otro">Otro (escribir)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {comprobanteProductoId === 'otro' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="comprobanteNombre">Nombre del producto</Label>
+                      <Input
+                        id="comprobanteNombre"
+                        value={comprobanteNombre}
+                        onChange={(e) => setComprobanteNombre(e.target.value)}
+                        placeholder="Ej. Gaseosa 500ml"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="comprobanteCantidad">Cantidad</Label>
+                    <Input
+                      id="comprobanteCantidad"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={comprobanteCantidad}
+                      onChange={(e) => setComprobanteCantidad(e.target.value)}
+                    />
+                  </div>
+
+                  <Button className="w-full min-h-[48px]" onClick={confirmarComprobanteProducto}>
+                    Revisar venta
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full min-h-[48px]"
+                    onClick={() => setComprobanteVenta(null)}
+                  >
+                    Cambiar comprobante
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        )}
 
         {/* VOZ */}
         <TabsContent value="voz" className="space-y-3">

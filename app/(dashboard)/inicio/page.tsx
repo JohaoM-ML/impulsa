@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { AlertTriangle, ClipboardList, CreditCard, ShoppingCart, BarChart3, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { SaludCircular } from '@/components/salud/SaludCircular'
 import { ExplicacionColapsable } from '@/components/shared/ExplicacionColapsable'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
@@ -226,17 +225,6 @@ export default function InicioPage() {
           </p>
         </CardContent>
       </Card>
-
-      <Button
-        variant="outline"
-        className="w-full min-h-[48px]"
-        onClick={async () => {
-          await fetch('/api/seed', { method: 'POST' })
-          window.location.reload()
-        }}
-      >
-        Cargar datos de demo
-      </Button>
     </div>
   )
 }

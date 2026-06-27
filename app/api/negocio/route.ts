@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getNegocioFromSession } from '@/lib/supabase/server'
+import { normalizarMediosPago } from '@/lib/medios-pago'
 import { validarTelefonoPeru } from '@/lib/telefono'
 
 /** Focus group: bodegas / nanostores — no se pide rubro en el registro. */
@@ -68,22 +69,36 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    const { telefono_wsp } = (await request.json()) as { telefono_wsp?: string }
-    if (!telefono_wsp?.trim()) {
-      return NextResponse.json({ error: 'Número de WhatsApp requerido' }, { status: 400 })
+    const body = (await request.json()) as { telefono_wsp?: string; medios_pago?: unknown }
+    const update: { telefono_wsp?: string; medios_pago?: string[] } = {}
+
+    if (body.telefono_wsp !== undefined) {
+      if (!body.telefono_wsp?.trim()) {
+        return NextResponse.json({ error: 'Número de WhatsApp requerido' }, { status: 400 })
+      }
+
+      const validacion = validarTelefonoPeru(body.telefono_wsp)
+      if (!validacion.ok) {
+        return NextResponse.json({ error: validacion.error }, { status: 400 })
+      }
+
+      // Formato canónico: solo dígitos E.164 sin "+" (ej. 51924128677).
+      // Debe coincidir con normalizarTelefono() en /api/chatbot y el lookup
+      // .in('telefono_wsp', [telefono, `+${telefono}`, `whatsapp:+${telefono}`]).
+      update.telefono_wsp = validacion.telefono
     }
 
-    const validacion = validarTelefonoPeru(telefono_wsp)
-    if (!validacion.ok) {
-      return NextResponse.json({ error: validacion.error }, { status: 400 })
+    if (body.medios_pago !== undefined) {
+      update.medios_pago = normalizarMediosPago(body.medios_pago)
     }
 
-    // Formato canónico: solo dígitos E.164 sin "+" (ej. 51924128677).
-    // Debe coincidir con normalizarTelefono() en /api/chatbot y el lookup
-    // .in('telefono_wsp', [telefono, `+${telefono}`, `whatsapp:+${telefono}`]).
+    if (!Object.keys(update).length) {
+      return NextResponse.json({ error: 'Nada para actualizar' }, { status: 400 })
+    }
+
     const { data, error: updateError } = await supabase
       .from('negocios')
-      .update({ telefono_wsp: validacion.telefono })
+      .update(update)
       .eq('id', negocio.id)
       .select()
       .single()

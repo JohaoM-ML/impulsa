@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { getNegocioFromSession } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient, getNegocioFromSession } from '@/lib/supabase/server'
 import { calcularIndiceSalud } from '@/lib/salud'
 import { recalcularSalud } from '@/lib/salud-server'
 
@@ -67,8 +67,11 @@ function diasAtras(n: number): string {
   return d.toISOString()
 }
 
-type SupabaseSeed = Awaited<ReturnType<typeof getNegocioFromSession>>['supabase']
+type SupabaseSeed = ReturnType<typeof createServiceClient>
 type ProveedorDemoKey = (typeof PROVEEDORES_DEMO)[number]['key']
+type NegocioSeed = {
+  id: string
+}
 
 async function asegurarProveedoresDemo(
   supabase: SupabaseSeed,
@@ -146,12 +149,68 @@ async function actualizarProductosDemo(
   }
 }
 
-export async function POST() {
-  try {
-    const { supabase, negocio, error } = await getNegocioFromSession()
-    if (error || !negocio) {
-      return NextResponse.json({ error: error ?? 'Negocio no encontrado' }, { status: error === 'No autorizado' ? 401 : 404 })
+async function resolverNegocioSeed(request: NextRequest): Promise<
+  | { supabase: SupabaseSeed; negocio: NegocioSeed; error: null }
+  | { supabase: null; negocio: null; error: NextResponse }
+> {
+  const secret = request.headers.get('x-demo-seed-secret')
+  const seedSecret = process.env.DEMO_SEED_SECRET
+
+  if (seedSecret && secret === seedSecret) {
+    const supabase = createServiceClient()
+    const body = (await request.json().catch(() => ({}))) as {
+      negocioId?: string
+      telefonoWsp?: string
+      userId?: string
     }
+
+    let query = supabase.from('negocios').select('id')
+    if (body.negocioId) query = query.eq('id', body.negocioId)
+    else if (body.telefonoWsp) query = query.eq('telefono_wsp', body.telefonoWsp)
+    else if (body.userId) query = query.eq('user_id', body.userId)
+    else {
+      return {
+        supabase: null,
+        negocio: null,
+        error: NextResponse.json(
+          { error: 'Indica negocioId, telefonoWsp o userId para cargar demo.' },
+          { status: 400 }
+        ),
+      }
+    }
+
+    const { data: negocio, error } = await query.maybeSingle()
+    if (error) throw error
+    if (!negocio) {
+      return {
+        supabase: null,
+        negocio: null,
+        error: NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 }),
+      }
+    }
+
+    return { supabase, negocio, error: null }
+  }
+
+  const { supabase, negocio, error } = await getNegocioFromSession()
+  if (error || !negocio) {
+    return {
+      supabase: null,
+      negocio: null,
+      error: NextResponse.json(
+        { error: error ?? 'Negocio no encontrado' },
+        { status: error === 'No autorizado' ? 401 : 404 }
+      ),
+    }
+  }
+
+  return { supabase: supabase as SupabaseSeed, negocio, error: null }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { supabase, negocio, error } = await resolverNegocioSeed(request)
+    if (error) return error
 
     // Evita duplicar el seed si ya hay inventario cargado.
     const { count } = await supabase

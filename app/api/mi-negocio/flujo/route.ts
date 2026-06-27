@@ -6,6 +6,7 @@ import {
   resumenFinanciero,
   type VentaConCosto,
 } from '@/lib/finanzas'
+import type { MedioPago } from '@/types'
 
 const SEMANAS = 8
 const MS_SEMANA = 7 * 24 * 60 * 60 * 1000
@@ -23,7 +24,7 @@ export async function GET() {
       supabase
         .from('ventas')
         .select(
-          'total, creado_en, items_venta(cantidad, precio_unit, productos(precio_compra))'
+          'total, creado_en, medio_pago, items_venta(cantidad, precio_unit, productos(precio_compra))'
         )
         .eq('negocio_id', negocio.id)
         .gte('creado_en', desde),
@@ -40,7 +41,11 @@ export async function GET() {
         .limit(1),
     ])
 
-    const ventasArr = (ventas ?? []) as (VentaConCosto & { total: number; creado_en: string })[]
+    const ventasArr = (ventas ?? []) as (VentaConCosto & {
+      total: number
+      creado_en: string
+      medio_pago?: MedioPago | null
+    })[]
     const gastosArr = (gastos ?? []) as { monto: number; creado_en: string }[]
 
     // Buckets semanales terminando en la semana actual.
@@ -54,6 +59,10 @@ export async function GET() {
         inicio: inicioBucket,
         fin: finBucket,
         ventas: 0,
+        efectivo: 0,
+        yape: 0,
+        plin: 0,
+        tarjeta: 0,
         costoMercaderia: 0,
         gastosFijos: 0,
       }
@@ -67,7 +76,12 @@ export async function GET() {
     for (const v of ventasArr) {
       const b = bucketDe(v.creado_en)
       if (b) {
-        b.ventas += Number(v.total)
+        const totalVenta = Number(v.total)
+        const medio = v.medio_pago ?? 'efectivo'
+        b.ventas += totalVenta
+        if (medio === 'yape' || medio === 'plin' || medio === 'tarjeta' || medio === 'efectivo') {
+          b[medio] += totalVenta
+        }
         b.costoMercaderia += costoDeVenta(v)
       }
     }
@@ -87,6 +101,10 @@ export async function GET() {
       return {
         semana: b.label,
         ventas: r2(b.ventas),
+        efectivo: r2(b.efectivo),
+        yape: r2(b.yape),
+        plin: r2(b.plin),
+        tarjeta: r2(b.tarjeta),
         costoMercaderia: r2(b.costoMercaderia),
         gananciaBruta: r2(bruta),
         gastosFijos: r2(b.gastosFijos),
@@ -97,6 +115,16 @@ export async function GET() {
     })
 
     const totalVentas = ventasArr.reduce((s, v) => s + Number(v.total), 0)
+    const porMedioPago = ventasArr.reduce<Record<MedioPago, number>>(
+      (acc, v) => {
+        const medio = v.medio_pago ?? 'efectivo'
+        if (medio === 'yape' || medio === 'plin' || medio === 'tarjeta' || medio === 'efectivo') {
+          acc[medio] += Number(v.total)
+        }
+        return acc
+      },
+      { efectivo: 0, yape: 0, plin: 0, tarjeta: 0 }
+    )
     const totalCosto = ventasArr.reduce((s, v) => s + costoDeVenta(v), 0)
     const totalGastosFijos = gastosArr.reduce((s, g) => s + Number(g.monto), 0)
 
@@ -131,6 +159,12 @@ export async function GET() {
       totalGastos: r2(resumen.costoMercaderia + resumen.gastosFijos),
       totalCosto: r2(resumen.costoMercaderia),
       totalGastosRegistrados: r2(resumen.gastosFijos),
+      porMedioPago: {
+        efectivo: r2(porMedioPago.efectivo),
+        yape: r2(porMedioPago.yape),
+        plin: r2(porMedioPago.plin),
+        tarjeta: r2(porMedioPago.tarjeta),
+      },
     })
   } catch (err) {
     console.error('[GET /api/mi-negocio/flujo]', err)

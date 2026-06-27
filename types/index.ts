@@ -1,4 +1,5 @@
 export type Nivel = 1 | 2 | 3 | 4
+export type MedioPago = 'efectivo' | 'yape' | 'plin' | 'tarjeta'
 
 export interface ItemVenta {
   id?: string
@@ -17,6 +18,8 @@ export interface Venta {
   total: number
   canal: string
   estado: string
+  medio_pago: MedioPago
+  comprobante_url?: string | null
   notas?: string | null
   creado_en: string
 }
@@ -31,6 +34,7 @@ export interface Negocio {
   nombre: string
   rubro?: string | null
   telefono_wsp?: string | null
+  medios_pago?: MedioPago[]
   hora_cierre_dia?: string
   resumen_diario_activo?: boolean
   ultimo_resumen_enviado?: string | null
@@ -41,6 +45,7 @@ export interface ConfiguracionNegocio {
   hora_cierre_dia: string
   resumen_diario_activo: boolean
   telefono_wsp: string | null
+  medios_pago?: MedioPago[]
 }
 
 export interface Producto {
@@ -182,6 +187,10 @@ export interface DashboardResumen {
 export interface FlujoSemana {
   semana: string
   ventas: number
+  yape?: number
+  plin?: number
+  efectivo?: number
+  tarjeta?: number
   costoMercaderia: number
   gananciaBruta: number
   gastosFijos: number
@@ -210,12 +219,21 @@ export interface FlujoResumen {
   totalGastos: number
   totalCosto: number
   totalGastosRegistrados: number
+  porMedioPago?: Record<MedioPago, number>
 }
 
 export interface OCRProductoDetectado {
   nombre: string
   cantidad: number
   precio_unit?: number
+}
+
+export interface ComprobantePagoDetectado {
+  monto: number | null
+  medio_pago: MedioPago | null
+  operacion?: string | null
+  fecha?: string | null
+  texto?: string
 }
 
 export interface TopProductoItem {

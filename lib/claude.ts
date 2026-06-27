@@ -1,6 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { vocab, type Nivel } from '@/lib/vocabulario'
+import { guiaTono } from '@/lib/tono'
 import type {
+  ComprobantePagoDetectado,
   CompraInteligentePatron,
   CompraInteligenteProducto,
   OCRProductoDetectado,
@@ -49,6 +51,21 @@ function extraerArrayJSON(texto: string): OCRProductoDetectado[] {
       .slice(0, 30)
   } catch {
     return []
+  }
+}
+
+function extraerObjetoJSON(texto: string): Record<string, unknown> | null {
+  const limpio = texto.replace(/```json/gi, '').replace(/```/g, '').trim()
+  const inicio = limpio.indexOf('{')
+  const fin = limpio.lastIndexOf('}')
+  if (inicio === -1 || fin === -1 || fin <= inicio) return null
+  try {
+    const parsed = JSON.parse(limpio.slice(inicio, fin + 1))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
   }
 }
 
@@ -106,6 +123,69 @@ Si no puedes leer el precio de un producto, omite el campo precio_unit. Si la im
   const block = message.content[0]
   const texto = block.type === 'text' ? block.text : ''
   return { texto, productos: extraerArrayJSON(texto) }
+}
+
+export async function leerComprobantePago(imageDataUrl: string): Promise<ComprobantePagoDetectado> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return {
+      monto: 25,
+      medio_pago: 'yape',
+      operacion: null,
+      fecha: null,
+      texto: '',
+    }
+  }
+
+  const mediaType = detectarMediaType(imageDataUrl)
+  const base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
+  const client = getAnthropicClient()
+  const message = await client.messages.create({
+    model: MODELO_CLAUDE,
+    max_tokens: 500,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64 },
+          },
+          {
+            type: 'text',
+            text: `Analiza esta captura de pago de una bodega peruana (Yape, Plin, tarjeta o efectivo digitalizado).
+
+Devuelve SOLO un objeto JSON con esta forma:
+{"monto":25,"medio_pago":"yape","operacion":"26101992","fecha":"2025-12-17 23:31","texto":"resumen corto"}
+
+Reglas:
+- medio_pago debe ser uno de: "yape", "plin", "tarjeta", "efectivo" o null.
+- monto debe ser número en soles, sin "S/". Si no se ve, usa null.
+- Si ves "Yape", usa "yape". Si ves "Plin", usa "plin".
+- operacion es el número/código de operación si aparece; si no, null.
+- fecha debe ser una fecha legible si aparece; si no, null.
+- No inventes datos que no estén en la imagen.`,
+          },
+        ],
+      },
+    ],
+  })
+
+  const block = message.content[0]
+  const texto = block.type === 'text' ? block.text : ''
+  const obj = extraerObjetoJSON(texto)
+  const medio = obj?.medio_pago
+  const medio_pago =
+    medio === 'yape' || medio === 'plin' || medio === 'tarjeta' || medio === 'efectivo'
+      ? medio
+      : null
+
+  return {
+    monto: obj?.monto === null || obj?.monto === undefined ? null : Number(obj.monto),
+    medio_pago,
+    operacion: obj?.operacion ? String(obj.operacion) : null,
+    fecha: obj?.fecha ? String(obj.fecha) : null,
+    texto: obj?.texto ? String(obj.texto) : texto,
+  }
 }
 
 /**
@@ -167,6 +247,7 @@ Reglas:
 }
 
 export async function generarExplicacionSalud(datos: {
+  nivel: Nivel
   indice: number
   ventas: number
   gastos: number
@@ -181,6 +262,14 @@ export async function generarExplicacionSalud(datos: {
   }
 }): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
+    if (datos.nivel === 1) {
+      return [
+        `Tu negocio está en ${datos.indice}/100.`,
+        `- Entró S/ ${datos.ventas.toFixed(2)} esta semana`,
+        `- Salió S/ ${datos.gastos.toFixed(2)}`,
+        '- Revisa lo que más se vende antes de comprar',
+      ].join('\n')
+    }
     return [
       `Tu salud financiera está en **${datos.indice}/100**.`,
       `- Vendiste S/ ${datos.ventas.toFixed(2)} esta semana`,
@@ -207,6 +296,10 @@ export async function generarExplicacionSalud(datos: {
       {
         role: 'user',
         content: `Eres un asesor cercano para bodegueros peruanos. Explica de forma muy simple la salud financiera de su negocio (NO es un score de banco, es un indicador propio de Impulsa):
+Nivel del dueño: ${datos.nivel}
+Guía de tono:
+${guiaTono(datos.nivel)}
+
 Índice: ${datos.indice}/100
 Ventas semana: S/ ${datos.ventas}
 Gastos semana (fijos ya prorrateados): S/ ${datos.gastos}
@@ -303,9 +396,15 @@ TAREA: redacta un mensaje natural para WhatsApp/app sobre la compra sugerida.
 NO calcules nada. NO inventes productos, cantidades ni proveedores. Usa SOLO estos datos estructurados:
 ${JSON.stringify(payload)}
 
+Guía de tono del nivel:
+${guiaTono(datos.nivel)}
+
 Reglas:
 - Máximo 4 líneas.
-- Tono peruano cercano, simple y útil.
+- Tono peruano de bodega: cercano, simple y útil. Habla como un casero limeño.
+- Usa SOLO español peruano. Trata de "tú" (nunca "vos" ni voseo como "fijate", "asegurate", "mirá").
+- PROHIBIDO usar argentinismos o muletillas argentinas: nada de "Che", "vos", "boludo", "laburo", "guita", "pibe".
+- Puedes usar expresiones peruanas naturales (p. ej. "ojo con", "caserito", "ya", "no te quedes corto"), sin exagerar.
 - Sin fórmulas ni términos técnicos.
 - Di "Soy Chaski" solo si suena natural.
 - Si no hay urgentes, recomienda no comprar de más.
@@ -324,6 +423,7 @@ Reglas:
 
 /** @deprecated Usar generarExplicacionSalud */
 export async function generarExplicacionPymScore(datos: {
+  nivel?: Nivel
   score: number
   ventas: number
   gastos: number
@@ -331,6 +431,7 @@ export async function generarExplicacionPymScore(datos: {
   deudaTotal?: number
 }): Promise<string> {
   return generarExplicacionSalud({
+    nivel: datos.nivel ?? 1,
     indice: datos.score,
     ventas: datos.ventas,
     gastos: datos.gastos,

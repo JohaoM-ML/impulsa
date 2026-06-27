@@ -1,19 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import { ArrowDownRight, ArrowUpRight, Search, ShoppingCart, TrendingDown, TrendingUp } from 'lucide-react'
+import { Search, ShoppingCart, TrendingDown, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,10 +27,12 @@ import {
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
 import { EstadoVacio } from '@/components/estados/EstadoVacio'
+import { GraficoFlujoAdaptativo } from '@/components/dashboard/GraficoFlujoAdaptativo'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useNivel } from '@/hooks/useNivel'
 import { toast } from '@/hooks/use-toast'
 import { etiquetaPeriodo, type PeriodoAbastecimiento } from '@/lib/abastecimiento'
+import { etiquetaMedioPago, MEDIOS_PAGO, normalizarMediosPago } from '@/lib/medios-pago'
 import { formatSoles, cn } from '@/lib/utils'
 import type {
   AbastecimientoResumen,
@@ -50,6 +40,7 @@ import type {
   CompraInteligenteProducto,
   CompraInteligenteResumen,
   FlujoResumen,
+  MedioPago,
   Producto,
   Proveedor,
   TopProductoItem,
@@ -221,6 +212,95 @@ function MensajeFlujo({ data }: { data: FlujoResumen }) {
   )
 }
 
+function MediosPagoNegocio({ data }: { data: FlujoResumen }) {
+  const [medios, setMedios] = useState<MedioPago[]>(['efectivo'])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/negocio')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((negocio) => {
+        if (negocio) setMedios(normalizarMediosPago(negocio.medios_pago))
+      })
+      .catch(() => undefined)
+  }, [])
+
+  function toggle(medio: MedioPago) {
+    setMedios((actual) => {
+      const next = actual.includes(medio)
+        ? actual.filter((m) => m !== medio)
+        : [...actual, medio]
+      return next.length ? next : ['efectivo']
+    })
+  }
+
+  async function guardar() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/negocio', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ medios_pago: medios }),
+      })
+      if (!res.ok) throw new Error('medios')
+      toast({ title: 'Medios de pago actualizados' })
+    } catch {
+      toast({ title: 'No se pudo guardar', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const totales = data.porMedioPago ?? { efectivo: 0, yape: 0, plin: 0, tarjeta: 0 }
+
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-4">
+        <div>
+          <p className="font-semibold text-brand-dark">Medios de pago</p>
+          <p className="text-sm text-muted-foreground">Marca lo que aceptas y mira por dónde entra tu plata.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {MEDIOS_PAGO.map((m) => {
+            const activo = medios.includes(m.value)
+            return (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => toggle(m.value)}
+                className={cn(
+                  'rounded-2xl border p-3 text-left text-sm',
+                  activo ? 'border-primary bg-primary/10 text-brand-dark' : 'text-muted-foreground'
+                )}
+              >
+                <span className="block font-semibold">{m.label}</span>
+                <span className="text-xs">{formatSoles(totales[m.value] ?? 0)}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-brand-tint p-3 text-sm">
+          {MEDIOS_PAGO.filter((m) => (totales[m.value] ?? 0) > 0).map((m) => (
+            <div key={m.value} className="flex justify-between gap-2">
+              <span>{etiquetaMedioPago(m.value)}</span>
+              <b>{formatSoles(totales[m.value] ?? 0)}</b>
+            </div>
+          ))}
+          {!MEDIOS_PAGO.some((m) => (totales[m.value] ?? 0) > 0) && (
+            <p className="col-span-2 text-muted-foreground">Aún no hay ventas con medio de pago registrado.</p>
+          )}
+        </div>
+
+        <Button className="w-full min-h-[48px]" onClick={guardar} disabled={loading}>
+          {loading ? 'Guardando...' : 'Guardar medios de pago'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 function TabFlujo() {
   const { nivel } = useNivel()
   const [data, setData] = useState<FlujoResumen | null>(null)
@@ -247,11 +327,6 @@ function TabFlujo() {
   if (loading) return <EstadoCargando />
   if (error) return <EstadoError mensaje="No pudimos cargar tu flujo de caja." onReintentar={cargar} />
   if (!data) return <EstadoVacio mensaje="Aún no hay movimientos para mostrar." />
-
-  const nivelBasico = nivel <= 2
-  const { comparacion } = data
-  const mejor = comparacion.delta >= 0
-  const gano = comparacion.ganancia >= 0
 
   return (
     <div className="space-y-4">
@@ -288,61 +363,8 @@ function TabFlujo() {
         </CardContent>
       </Card>
 
-      {/* Comparación semanal — lenguaje simple para niveles 1-2 */}
-      {nivelBasico ? (
-        <Card>
-          <CardContent className="space-y-2 p-4">
-            <p className="font-semibold text-brand-dark">Esta semana</p>
-            <p className="text-sm">
-              Vendiste <b className="text-primary">{formatSoles(comparacion.ventas)}</b> y gastaste{' '}
-              <b className="text-destructive">{formatSoles(comparacion.gastos)}</b>.{' '}
-              {gano ? 'Ganaste' : 'Perdiste'}{' '}
-              <b className={gano ? 'text-emerald-600' : 'text-destructive'}>
-                {formatSoles(Math.abs(comparacion.ganancia))}
-              </b>
-              .
-            </p>
-            <p className={cn('flex items-center gap-1 text-sm font-medium', mejor ? 'text-emerald-600' : 'text-destructive')}>
-              {mejor ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-              {mejor ? 'Mejor' : 'Peor'} que la semana pasada
-              {comparacion.delta !== 0 && <> ({formatSoles(Math.abs(comparacion.delta))})</>}
-            </p>
-            <div className="h-40 pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.serie.slice(-4)}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="semana" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} width={40} />
-                  <Tooltip formatter={(v: number) => formatSoles(v)} />
-                  <Legend />
-                  <Bar dataKey="ventas" name="Ventas" fill="hsl(153 69% 39%)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="gastos" name="Gastos" fill="hsl(0 84% 60%)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-4">
-            <p className="mb-3 font-semibold text-brand-dark">Ventas vs Gastos (semanal)</p>
-            <div className="h-60">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.serie}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="semana" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} width={40} />
-                  <Tooltip formatter={(v: number) => formatSoles(v)} />
-                  <Legend />
-                  <Line type="monotone" dataKey="ventas" name="Ventas" stroke="hsl(153 69% 39%)" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="gananciaNeta" name="Ganancia neta" stroke="hsl(217 91% 60%)" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="gastos" name="Gastos" stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <GraficoFlujoAdaptativo nivel={nivel} data={data} />
+      <MediosPagoNegocio data={data} />
 
       <MensajeFlujo data={data} />
     </div>

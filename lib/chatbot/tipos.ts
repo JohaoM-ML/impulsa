@@ -1,5 +1,6 @@
 import type { createServiceClient } from '@/lib/supabase/server'
 import type { Nivel } from '@/lib/vocabulario'
+import type { MedioPago } from '@/types'
 
 export type ServiceClient = ReturnType<typeof createServiceClient>
 
@@ -46,6 +47,12 @@ export interface TurnoHistorial {
 export interface ContextoConversacion {
   accion?: { tipo: TipoAccion; datos: Record<string, unknown> }
   datos_parciales?: Record<string, unknown>
+  comprobante_pago?: {
+    monto: number
+    medio_pago: MedioPago
+    comprobante_url?: string | null
+    operacion?: string | null
+  }
   intent?: TipoAccion
 }
 

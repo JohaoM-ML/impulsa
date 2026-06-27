@@ -6,12 +6,17 @@ import {
   inicioSemanaAnterior,
 } from '@/lib/salud'
 import { costoDeVenta, type VentaConCosto } from '@/lib/finanzas'
+import type { Nivel } from '@/lib/vocabulario'
 
 type SupabaseLike = {
   from: (tabla: string) => any
 }
 
-type NegocioLike = { id: string; creado_en?: string | null }
+type NegocioLike = { id: string; user_id?: string | null; creado_en?: string | null }
+
+function nivelValido(nivel: number | null | undefined): Nivel {
+  return (nivel && nivel >= 1 && nivel <= 4 ? nivel : 1) as Nivel
+}
 
 /**
  * Recalcula el Índice de Salud Financiera de la semana actual y lo persiste.
@@ -36,6 +41,7 @@ export async function recalcularSalud(
     { data: gastosFijos },
     { data: ventas28 },
     { data: existente },
+    { data: progreso },
   ] = await Promise.all([
     supabase
       .from('ventas')
@@ -59,6 +65,9 @@ export async function recalcularSalud(
       .eq('negocio_id', negocio.id)
       .eq('semana', semana)
       .maybeSingle(),
+    negocio.user_id
+      ? supabase.from('progreso_usuario').select('nivel').eq('user_id', negocio.user_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const ventasSemana = (ventas ?? []).reduce((s: number, v: { total: number }) => s + Number(v.total), 0)
@@ -118,6 +127,7 @@ export async function recalcularSalud(
   let explicacion: string | null = existente?.explicacion ?? null
   if (opts.regenerarExplicacion || !explicacion || numerosCambiaron) {
     explicacion = await generarExplicacionSalud({
+      nivel: nivelValido((progreso as { nivel?: number } | null)?.nivel),
       indice,
       ventas: ventasSemana,
       gastos: gastosTotales,

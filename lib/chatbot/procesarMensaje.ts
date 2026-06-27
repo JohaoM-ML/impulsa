@@ -3,6 +3,7 @@ import { getAnthropicClient, MODELO_CLAUDE } from '@/lib/claude'
 import { construirCompraInteligente } from '@/lib/compra-inteligente-server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { NOMBRES_NIVEL, vocab, type Nivel } from '@/lib/vocabulario'
+import { guiaTono } from '@/lib/tono'
 import { SYSTEM_PROMPT_ASESOR } from '@/lib/chatbot/prompt'
 import {
   cargarConversacion,
@@ -64,6 +65,29 @@ function formatearPedidoWhatsApp(resumen: Awaited<ReturnType<typeof construirCom
     .slice(0, 900)
 }
 
+function completarVentaConComprobante(datos: Record<string, unknown>): Record<string, unknown> {
+  const total = Number(datos.total)
+  const items = Array.isArray(datos.items) ? (datos.items as Record<string, unknown>[]) : []
+  if (!Number.isFinite(total) || total <= 0 || items.length !== 1) return datos
+
+  const item = items[0]
+  const cantidad = Number(item.cantidad)
+  const precioActual = Number(item.precio_unit)
+  if (!Number.isFinite(cantidad) || cantidad <= 0 || (Number.isFinite(precioActual) && precioActual > 0)) {
+    return datos
+  }
+
+  return {
+    ...datos,
+    items: [
+      {
+        ...item,
+        precio_unit: Math.round((total / cantidad) * 100) / 100,
+      },
+    ],
+  }
+}
+
 function construirContextoSistema(
   negocio: Negocio,
   nivel: Nivel,
@@ -75,6 +99,13 @@ function construirContextoSistema(
   if (estado.contexto.datos_parciales && Object.keys(estado.contexto.datos_parciales).length) {
     partes.push(
       `Datos PARCIALES acumulados (continúa desde aquí, no reinicies): ${JSON.stringify(estado.contexto.datos_parciales)}`
+    )
+  }
+
+  if (estado.contexto.comprobante_pago) {
+    partes.push(
+      `Comprobante de pago detectado: ${JSON.stringify(estado.contexto.comprobante_pago)}. ` +
+        'El usuario solo debe completar producto y cantidad; calcula precio_unit = monto / cantidad si falta.'
     )
   }
 
@@ -105,6 +136,9 @@ VOCABULARIO DEL NIVEL:
 - inventario bajo: ${vocab('inventario_bajo', nivel)}
 - deudas por cobrar: ${vocab('deuda_cobrar', nivel)}
 - salud financiera: ${vocab('salud_financiera', nivel)}
+
+GUÍA DE TONO DEL NIVEL:
+${guiaTono(nivel)}
 
 RESUMEN DEL NEGOCIO:
 ${resumen}`
@@ -221,16 +255,23 @@ export async function procesarMensaje(
     respuestaFinal = await resolverConsultaAsesor(supabase, negocio, accion.tipo, nivel)
     botones = undefined
   } else if (confirmando && pendiente) {
-    const datos = Object.keys(pendiente.datos ?? {}).length ? pendiente.datos : accion?.datos ?? {}
+    const datos = completarVentaConComprobante(
+      Object.keys(pendiente.datos ?? {}).length ? pendiente.datos : accion?.datos ?? {}
+    )
     const resultado = await ejecutarAccion(supabase, negocio, pendiente.tipo, datos)
     if (!resultado.ok) respuestaFinal = `${resultado.resumen} ¿Lo intentamos de nuevo?`
     botones = undefined
   } else if (accion?.estado === 'confirmada' && esAccionDeEscritura(accion.tipo)) {
-    const resultado = await ejecutarAccion(supabase, negocio, accion.tipo, accion.datos ?? {})
+    const resultado = await ejecutarAccion(
+      supabase,
+      negocio,
+      accion.tipo,
+      completarVentaConComprobante(accion.datos ?? {})
+    )
     if (!resultado.ok) respuestaFinal = `${resultado.resumen} ¿Lo intentamos de nuevo?`
     botones = undefined
   } else if (accion?.estado === 'pendiente_confirmacion' && esAccionDeEscritura(accion.tipo)) {
-    const datos = limpiarDatosAccion(accion.datos ?? {})
+    const datos = completarVentaConComprobante(limpiarDatosAccion(accion.datos ?? {}))
     const completos = accionDatosCompletos(accion.tipo, datos)
 
     if (!completos) {
@@ -255,10 +296,10 @@ export async function procesarMensaje(
     accion &&
     esAccionDeEscritura(accion.tipo)
   ) {
-    const merged = limpiarDatosAccion({
+    const merged = completarVentaConComprobante(limpiarDatosAccion({
       ...(estado.contexto.datos_parciales ?? {}),
       ...(accion.datos ?? {}),
-    })
+    }))
     if (accionDatosCompletos(accion.tipo, merged)) {
       nuevoEstado.estado_flujo = 'esperando_confirmacion'
       nuevoEstado.contexto = { accion: { tipo: accion.tipo, datos: merged } }

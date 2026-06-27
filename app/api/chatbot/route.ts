@@ -1,6 +1,13 @@
 import { guardarRespuestaMessageSid, reservarMessageSid } from '@/lib/chatbot/idempotencia'
 import { procesarMensaje } from '@/lib/chatbot/procesarMensaje'
-import { transcribirMediaTwilio, twilioMediaConfigurado } from '@/lib/chatbot/twilio-media'
+import { leerComprobantePago } from '@/lib/claude'
+import { cargarConversacion, guardarConversacion } from '@/lib/chatbot/contexto'
+import {
+  descargarMediaTwilio,
+  transcribirMediaTwilio,
+  twilioMediaConfigurado,
+  twilioMediaImagenConfigurado,
+} from '@/lib/chatbot/twilio-media'
 import type { RequestChatbot, TipoMensajeChatbot } from '@/lib/chatbot/tipos'
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
@@ -92,6 +99,79 @@ export async function POST(request: NextRequest) {
       if (!mensaje.trim()) {
         return NextResponse.json({
           respuesta: 'El audio sonó vacío. ¿Me repites la venta en texto?',
+        })
+      }
+    }
+
+    if (tipo === 'image') {
+      if (!mediaUrl) {
+        return NextResponse.json({
+          respuesta: 'Recibí una imagen pero no pude abrirla. Envíame otra captura o escribe la venta.',
+        })
+      }
+      if (!twilioMediaImagenConfigurado()) {
+        return NextResponse.json({
+          respuesta: 'Por ahora no puedo leer imágenes por WhatsApp. Escríbeme el monto y la venta.',
+        })
+      }
+
+      try {
+        const media = await descargarMediaTwilio(mediaUrl, mediaContentType)
+        const comprobante = await leerComprobantePago(media.dataUrl)
+        if (!comprobante.monto || !comprobante.medio_pago) {
+          return NextResponse.json({
+            respuesta: 'No pude leer el monto o el medio de pago. Escríbeme la venta en texto, por favor.',
+          })
+        }
+
+        const path = `${negocio.user_id}/${negocio.id}/${Date.now()}.${media.extension}`
+        const { error: uploadError } = await supabase.storage
+          .from('comprobantes')
+          .upload(path, media.buffer, {
+            contentType: mediaContentType ?? `image/${media.extension === 'jpg' ? 'jpeg' : media.extension}`,
+            upsert: false,
+          })
+        if (uploadError) throw uploadError
+
+        const estado = await cargarConversacion(supabase, negocio.id, telefono)
+        const textoComprobante = `Comprobante ${comprobante.medio_pago} por S/ ${comprobante.monto.toFixed(2)}`
+        await guardarConversacion(supabase, negocio.id, telefono, {
+          estado_flujo: 'esperando_datos',
+          contexto: {
+            intent: 'registrar_venta',
+            datos_parciales: {
+              total: comprobante.monto,
+              medio_pago: comprobante.medio_pago,
+              comprobante_url: path,
+            },
+            comprobante_pago: {
+              monto: comprobante.monto,
+              medio_pago: comprobante.medio_pago,
+              comprobante_url: path,
+              operacion: comprobante.operacion ?? null,
+            },
+          },
+          historial: [
+            ...estado.historial,
+            { rol: 'usuario', texto: textoComprobante },
+          ],
+        })
+
+        if (mensaje.trim()) {
+          const resultado = await procesarMensaje(negocio, telefono, mensaje, 'text')
+          await guardarRespuestaMessageSid(supabase, messageSid, resultado)
+          return NextResponse.json(resultado)
+        }
+
+        const respuesta = {
+          respuesta: `Listo, recibí S/ ${comprobante.monto.toFixed(2)} por ${comprobante.medio_pago.toUpperCase()}. ¿Qué producto y cantidad vendiste?`,
+        }
+        await guardarRespuestaMessageSid(supabase, messageSid, respuesta)
+        return NextResponse.json(respuesta)
+      } catch (err) {
+        console.error('[POST /api/chatbot] procesar imagen', err)
+        return NextResponse.json({
+          respuesta: 'No pude leer esa imagen. Envíame otra captura o escríbeme la venta.',
         })
       }
     }

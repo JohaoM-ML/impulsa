@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getNegocioFromSession } from '@/lib/supabase/server'
+import { esMedioPago } from '@/lib/medios-pago'
 import { recalcularSalud } from '@/lib/salud-server'
 
 export async function GET() {
@@ -33,6 +34,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    const medioPago = esMedioPago(body.medio_pago) ? body.medio_pago : 'efectivo'
+    const totalBody = Number(body.total)
     const items = body.items as Array<{
       nombre_item: string
       cantidad: number
@@ -44,7 +47,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Agrega al menos un producto' }, { status: 400 })
     }
 
-    const total = items.reduce((s, i) => s + i.cantidad * i.precio_unit, 0)
+    const totalCalculado = items.reduce((s, i) => s + i.cantidad * i.precio_unit, 0)
+    const total = Number.isFinite(totalBody) && totalBody > 0 ? totalBody : totalCalculado
 
     const itemsPayload = items.map((i) => ({
       producto_id: i.producto_id ?? null,
@@ -61,6 +65,12 @@ export async function POST(request: NextRequest) {
         p_items: itemsPayload,
         p_cliente_id: body.cliente_id ?? null,
         p_notas: body.notas ?? null,
+        p_medio_pago: medioPago,
+        p_canal: body.canal === 'whatsapp' ? 'whatsapp' : 'presencial',
+        p_comprobante_url:
+          typeof body.comprobante_url === 'string' && body.comprobante_url.trim()
+            ? body.comprobante_url.trim()
+            : null,
       })
       .single()
 

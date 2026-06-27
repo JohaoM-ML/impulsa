@@ -246,7 +246,7 @@ Todas las rutas (excepto `/api/chatbot`) requieren sesión Supabase y obtienen `
 |--------|------|-------------|
 | GET | `/api/negocio` | Datos del negocio actual |
 | GET | `/api/dashboard` | Resumen para Inicio |
-| POST | `/api/seed` | Cargar datos de demo |
+| POST | `/api/seed` | Carga interna de datos demo (script con secreto) |
 
 ### Operaciones
 
@@ -357,7 +357,7 @@ Contrato esperado por n8n:
 
 1. Registrarse en `/registro`
 2. Completar onboarding (5 preguntas)
-3. En `/inicio`, usar **"Cargar datos de demo"** (botón seed)
+3. Cargar datos demo desde consola: `npm run seed:demo -- --negocio-id <uuid>`
 4. Registrar una venta en `/registrar` (tab Manual, Voz o Foto)
 5. Ver inventario y fiado en `/mi-negocio`
 6. Desde nivel 2, explorar `/pym-score`

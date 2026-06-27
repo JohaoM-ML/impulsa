@@ -1,4 +1,5 @@
 import type { Negocio } from '@/types'
+import { esMedioPago } from '@/lib/medios-pago'
 import { recalcularSalud } from '@/lib/salud-server'
 import type { ServiceClient, TipoAccion } from '@/lib/chatbot/tipos'
 
@@ -78,10 +79,22 @@ async function registrarVenta(
   })
 
   const total = num(datos.total, items.reduce((s, i) => s + i.subtotal, 0))
+  const medioPago = esMedioPago(datos.medio_pago) ? datos.medio_pago : 'efectivo'
+  const comprobanteUrl =
+    typeof datos.comprobante_url === 'string' && datos.comprobante_url.trim()
+      ? datos.comprobante_url.trim()
+      : null
 
   const { data: venta, error } = await supabase
     .from('ventas')
-    .insert({ negocio_id: negocio.id, total, canal: 'whatsapp', estado: 'pagado' })
+    .insert({
+      negocio_id: negocio.id,
+      total,
+      canal: 'whatsapp',
+      estado: 'pagado',
+      medio_pago: medioPago,
+      comprobante_url: comprobanteUrl,
+    })
     .select()
     .single()
   if (error || !venta) return { ok: false, resumen: 'No pude registrar la venta.' }

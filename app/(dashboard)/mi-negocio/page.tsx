@@ -28,6 +28,7 @@ import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
 import { EstadoVacio } from '@/components/estados/EstadoVacio'
 import { GraficoFlujoAdaptativo } from '@/components/dashboard/GraficoFlujoAdaptativo'
+import { MovimientosFlujo } from '@/components/mi-negocio/MovimientosFlujo'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useNivel } from '@/hooks/useNivel'
 import { toast } from '@/hooks/use-toast'
@@ -400,6 +401,8 @@ function TabFlujo() {
       <MediosPagoNegocio data={data} />
 
       <MensajeFlujo data={data} />
+
+      <MovimientosFlujo periodo={periodo} />
     </div>
   )
 }

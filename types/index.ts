@@ -231,6 +231,28 @@ export interface FlujoResumen {
   porMedioPago?: Record<MedioPago, number>
 }
 
+export interface MovimientoLibro {
+  id: string
+  tipo: 'venta' | 'gasto'
+  /** creado_en del registro original */
+  fecha: string
+  /** Resumen de items de la venta o descripción del gasto */
+  concepto: string
+  /** Siempre positivo; el tipo indica si entra (venta) o sale (gasto) */
+  monto: number
+  medio_pago?: MedioPago | null
+}
+
+export interface LibroResumen {
+  periodo: PeriodoFlujo
+  /** Ventas del periodo, para la sección "Registro de ventas" */
+  ventas: VentaConItems[]
+  /** Ventas y gastos del periodo en orden cronológico, para el "Libro diario" */
+  movimientos: MovimientoLibro[]
+  totalEntradas: number
+  totalSalidas: number
+}
+
 export interface OCRProductoDetectado {
   nombre: string
   cantidad: number

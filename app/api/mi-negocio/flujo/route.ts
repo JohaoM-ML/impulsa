@@ -6,11 +6,16 @@ import {
   resumenFinanciero,
   type VentaConCosto,
 } from '@/lib/finanzas'
+import {
+  fechaLima,
+  inicioPeriodoActual,
+  limaStartMs,
+  periodoFlujoValido,
+} from '@/lib/fechas-lima'
 import type { MedioPago, PeriodoFlujo } from '@/types'
 
 // Días promedio de un mes, para prorratear gastos fijos mensuales a su parte semanal.
 const DIAS_MES = 30
-const LIMA_OFFSET_MS = -5 * 60 * 60 * 1000
 const BUCKETS_POR_PERIODO: Record<PeriodoFlujo, number> = {
   dia: 14,
   semana: 8,
@@ -42,51 +47,11 @@ type BucketFlujo = {
   gastosVariables: number
 }
 
-function periodoValido(value: string | null): PeriodoFlujo {
-  return value === 'dia' || value === 'semana' || value === 'mes' ? value : 'semana'
-}
-
-function fechaLima(ms = Date.now()) {
-  const d = new Date(ms + LIMA_OFFSET_MS)
-  return {
-    year: d.getUTCFullYear(),
-    month: d.getUTCMonth(),
-    date: d.getUTCDate(),
-    day: d.getUTCDay(),
-  }
-}
-
-function limaStartMs(year: number, month: number, date: number): number {
-  return Date.UTC(year, month, date) - LIMA_OFFSET_MS
-}
-
-function inicioDiaLima(ms = Date.now()): number {
-  const d = fechaLima(ms)
-  return limaStartMs(d.year, d.month, d.date)
-}
-
-function inicioSemanaLima(ms = Date.now()): number {
-  const d = fechaLima(ms)
-  const diff = d.day === 0 ? 6 : d.day - 1
-  return limaStartMs(d.year, d.month, d.date - diff)
-}
-
-function inicioMesLima(ms = Date.now()): number {
-  const d = fechaLima(ms)
-  return limaStartMs(d.year, d.month, 1)
-}
-
 function sumarPeriodo(ms: number, periodo: PeriodoFlujo, cantidad: number): number {
   const d = fechaLima(ms)
   if (periodo === 'dia') return limaStartMs(d.year, d.month, d.date + cantidad)
   if (periodo === 'semana') return limaStartMs(d.year, d.month, d.date + cantidad * 7)
   return limaStartMs(d.year, d.month + cantidad, 1)
-}
-
-function inicioPeriodoActual(periodo: PeriodoFlujo): number {
-  if (periodo === 'dia') return inicioDiaLima()
-  if (periodo === 'semana') return inicioSemanaLima()
-  return inicioMesLima()
 }
 
 function etiquetaBucket(ms: number, periodo: PeriodoFlujo): string {
@@ -133,7 +98,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error ?? 'Negocio no encontrado' }, { status: error === 'No autorizado' ? 401 : 404 })
     }
 
-    const periodo = periodoValido(new URL(request.url).searchParams.get('periodo'))
+    const periodo = periodoFlujoValido(new URL(request.url).searchParams.get('periodo'))
     const buckets = construirBuckets(periodo)
     const desde = new Date(buckets[0]?.inicio ?? inicioPeriodoActual(periodo)).toISOString()
 

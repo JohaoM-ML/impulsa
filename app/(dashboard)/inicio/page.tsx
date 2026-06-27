@@ -30,7 +30,7 @@ function fechaHoy(): string {
 export default function InicioPage() {
   const router = useRouter()
   const pathname = usePathname()
-  const { nivel, vocab, loading: loadingNivel, error: errorNivel, onboardingCompletado, recargar } = useNivel()
+  const { nivel, vocab, loading: loadingNivel, error: errorNivel, progreso, recargar } = useNivel()
   const { negocio, loading: loadingNegocio } = useNegocio()
   const [resumen, setResumen] = useState<DashboardResumen | null>(null)
   const [loadingResumen, setLoadingResumen] = useState(true)
@@ -51,10 +51,14 @@ export default function InicioPage() {
   }, [])
 
   useEffect(() => {
-    if (!loadingNivel && !onboardingCompletado) {
+    // Solo mandamos al onboarding cuando SABEMOS que no está completo:
+    // progreso cargado y onboarding_completado === false. Si el fetch de nivel
+    // falló o aún no resolvió (progreso null), no rebotamos al usuario al paso
+    // del teléfono; mostramos el estado de error con reintento.
+    if (!loadingNivel && progreso && progreso.onboarding_completado === false) {
       router.replace('/onboarding')
     }
-  }, [loadingNivel, onboardingCompletado, router])
+  }, [loadingNivel, progreso, router])
 
   useEffect(() => {
     if (pathname === '/inicio') cargarResumen()

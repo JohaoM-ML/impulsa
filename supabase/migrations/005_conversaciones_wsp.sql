@@ -16,9 +16,9 @@ create table if not exists conversaciones_wsp (
 create index if not exists idx_conversaciones_wsp_telefono on conversaciones_wsp(telefono);
 create index if not exists idx_conversaciones_wsp_negocio on conversaciones_wsp(negocio_id);
 
-alter table conversaciones_wsp enable row level security;
+alter table conversaciones_wsp enable row level security; 
 
 -- El dueño puede leer/gestionar la conversación de su propio negocio desde la app.
 -- El chatbot usa el service role, que omite RLS.
 create policy "conversaciones_wsp_own" on conversaciones_wsp
-  for all using (negocio_id = public.usuario_negocio_id());
+  for all using (negocio_id = public.usuario_negocio_id()); 

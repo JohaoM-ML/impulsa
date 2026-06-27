@@ -35,11 +35,11 @@ export const VOCABULARIO = {
     3: 'transacciones diarias',
     4: 'volumen de ventas diario',
   },
-  pym_score: {
-    1: 'cómo va tu negocio',
-    2: 'tu PymScore',
-    3: 'índice de salud financiera',
-    4: 'score de desempeño PYME',
+  salud_financiera: {
+    1: 'la salud de tu negocio',
+    2: 'tu salud financiera',
+    3: 'tu índice de salud financiera',
+    4: 'tu índice de salud financiera (ISF)',
   },
 } as const
 

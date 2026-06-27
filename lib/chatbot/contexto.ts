@@ -92,8 +92,8 @@ export async function construirResumenNegocio(
         .eq('activo', true),
       supabase.from('clientes').select('nombre, deuda_total').eq('negocio_id', negocio.id).gt('deuda_total', 0),
       supabase
-        .from('pym_scores')
-        .select('score')
+        .from('salud_financiera')
+        .select('indice')
         .eq('negocio_id', negocio.id)
         .order('semana', { ascending: false })
         .limit(1)
@@ -129,7 +129,9 @@ export async function construirResumenNegocio(
     top.length ? `Top productos de hoy: ${top.map(([n, c]) => `${n} x${c}`).join(', ')}` : 'Aún no hay ventas hoy.',
     stockBajo.length ? `Stock bajo: ${stockBajo.join(', ')}` : 'Sin alertas de stock.',
     fiados.length ? `Te deben (fiado): ${fiados.join('; ')} | Total: S/ ${totalFiado.toFixed(2)}` : 'Nadie te debe ahora.',
-    scoreRow?.score != null ? `PymScore actual: ${scoreRow.score}/100` : 'Aún no tiene PymScore calculado.',
+    scoreRow?.indice != null
+      ? `Salud financiera actual: ${scoreRow.indice}/100`
+      : 'Aún no tiene salud financiera calculada.',
   ]
 
   return lineas.join('\n')

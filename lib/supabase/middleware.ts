@@ -33,7 +33,7 @@ export async function updateSession(request: NextRequest) {
     '/inicio',
     '/registrar',
     '/mi-negocio',
-    '/pym-score',
+    '/salud',
     '/aprender',
     '/onboarding',
     // Redirecciones legacy (next.config.js)

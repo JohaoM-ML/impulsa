@@ -25,7 +25,7 @@ function getInfoNivel(nivel: Exclude<Nivel, 1>) {
     2: [
       'Vocabulario más claro en toda la app',
       'Nuevos módulos de finanzas básicas',
-      `Mejor lectura de ${vocab('pym_score', 2)}`,
+      `Mejor lectura de ${vocab('salud_financiera', 2)}`,
     ],
     3: [
       'Términos financieros más precisos',
@@ -35,7 +35,7 @@ function getInfoNivel(nivel: Exclude<Nivel, 1>) {
     4: [
       'Vocabulario de empresario en toda la app',
       'Acceso al expediente financiero',
-      `Preparación para crédito usando tu ${vocab('pym_score', 4)}`,
+      `Preparación para crédito usando tu ${vocab('salud_financiera', 4)}`,
     ],
   }
 

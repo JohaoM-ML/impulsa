@@ -9,7 +9,7 @@ const links = [
   { href: '/inicio', label: 'Inicio', icon: Home },
   { href: '/registrar', label: 'Registrar', icon: ClipboardList },
   { href: '/mi-negocio', label: 'Mi Negocio', icon: Store },
-  { href: '/pym-score', label: 'PymScore', icon: Trophy },
+  { href: '/salud', label: 'Salud', icon: Trophy },
   { href: '/aprender', label: 'Aprender', icon: GraduationCap },
 ]
 

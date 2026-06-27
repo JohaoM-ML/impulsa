@@ -3,7 +3,7 @@ import type { OCRProductoDetectado } from '@/types'
 
 // Modelo balanceado para tareas generales del producto.
 export const MODELO_CLAUDE = 'claude-sonnet-4-6'
-// Modelo rápido y barato para textos cortos (ej. explicación del PymScore).
+// Modelo rápido y barato para textos cortos (ej. explicación de salud financiera).
 export const MODELO_CLAUDE_RAPIDO = 'claude-haiku-4-5-20251001'
 
 export function getAnthropicClient() {
@@ -161,21 +161,33 @@ Reglas:
   return block.type === 'text' ? extraerArrayJSON(block.text) : []
 }
 
-export async function generarExplicacionPymScore(datos: {
-  score: number
+export async function generarExplicacionSalud(datos: {
+  indice: number
   ventas: number
   gastos: number
   margen: number
   deudaTotal?: number
+  componentes?: {
+    rentabilidad?: number
+    liquidez?: number
+    deudas?: number
+    consistencia?: number
+    crecimiento?: number
+  }
 }): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return `Tu negocio tiene un score de ${datos.score}/100. Ventas: S/ ${datos.ventas.toFixed(2)}, gastos: S/ ${datos.gastos.toFixed(2)}.`
+    return `Tu salud financiera está en ${datos.indice}/100. Ventas: S/ ${datos.ventas.toFixed(2)}, gastos: S/ ${datos.gastos.toFixed(2)}.`
   }
 
   const lineaFiado =
     datos.deudaTotal && datos.deudaTotal > 0
-      ? `\nFiado por cobrar: S/ ${datos.deudaTotal.toFixed(2)}`
+      ? `\nFiado y deudas: S/ ${datos.deudaTotal.toFixed(2)}`
       : ''
+
+  const comp = datos.componentes
+  const lineaPilares = comp
+    ? `\nPilares: rentabilidad ${comp.rentabilidad ?? '—'}, liquidez ${comp.liquidez ?? '—'}, deudas ${comp.deudas ?? '—'}, consistencia ${comp.consistencia ?? '—'}, crecimiento ${comp.crecimiento ?? '—'}`
+    : ''
 
   const client = getAnthropicClient()
   const message = await client.messages.create({
@@ -184,11 +196,11 @@ export async function generarExplicacionPymScore(datos: {
     messages: [
       {
         role: 'user',
-        content: `Eres un asesor cercano para bodegueros peruanos. Explica en 2-3 líneas simples este PymScore:
-Score: ${datos.score}/100
+        content: `Eres un asesor cercano para bodegueros peruanos. Explica en 2-3 líneas simples la salud financiera de su negocio (NO es un score de banco, es un indicador propio de Impulsa):
+Índice: ${datos.indice}/100
 Ventas semana: S/ ${datos.ventas}
-Gastos semana (gastos fijos ya prorrateados): S/ ${datos.gastos}
-Margen: ${datos.margen.toFixed(1)}%${lineaFiado}
+Gastos semana (fijos ya prorrateados): S/ ${datos.gastos}
+Margen: ${datos.margen.toFixed(1)}%${lineaFiado}${lineaPilares}
 
 Reglas de formato:
 - Escribe en texto plano, NO uses encabezados con "#" ni listas.
@@ -200,5 +212,22 @@ Reglas de formato:
   })
 
   const block = message.content[0]
-  return block.type === 'text' ? block.text : `Score: ${datos.score}/100`
+  return block.type === 'text' ? block.text : `Salud financiera: ${datos.indice}/100`
+}
+
+/** @deprecated Usar generarExplicacionSalud */
+export async function generarExplicacionPymScore(datos: {
+  score: number
+  ventas: number
+  gastos: number
+  margen: number
+  deudaTotal?: number
+}): Promise<string> {
+  return generarExplicacionSalud({
+    indice: datos.score,
+    ventas: datos.ventas,
+    gastos: datos.gastos,
+    margen: datos.margen,
+    deudaTotal: datos.deudaTotal,
+  })
 }

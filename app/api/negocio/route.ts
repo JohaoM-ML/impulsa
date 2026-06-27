@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getNegocioFromSession } from '@/lib/supabase/server'
+import { validarTelefonoPeru } from '@/lib/telefono'
 
 export async function GET() {
   try {
@@ -50,6 +51,50 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(nuevoNegocio, { status: 201 })
   } catch (err) {
     console.error('[POST /api/negocio]', err)
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const { supabase, negocio, error } = await getNegocioFromSession()
+    if (error || !negocio) {
+      return NextResponse.json(
+        { error: error ?? 'Negocio no encontrado' },
+        { status: error === 'No autorizado' ? 401 : 404 }
+      )
+    }
+
+    const { telefono_wsp } = (await request.json()) as { telefono_wsp?: string }
+    if (!telefono_wsp?.trim()) {
+      return NextResponse.json({ error: 'Número de WhatsApp requerido' }, { status: 400 })
+    }
+
+    const validacion = validarTelefonoPeru(telefono_wsp)
+    if (!validacion.ok) {
+      return NextResponse.json({ error: validacion.error }, { status: 400 })
+    }
+
+    // Formato canónico: solo dígitos E.164 sin "+" (ej. 51924128677).
+    // Debe coincidir con normalizarTelefono() en /api/chatbot y el lookup
+    // .in('telefono_wsp', [telefono, `+${telefono}`, `whatsapp:+${telefono}`]).
+    const { data, error: updateError } = await supabase
+      .from('negocios')
+      .update({ telefono_wsp: validacion.telefono })
+      .eq('id', negocio.id)
+      .select()
+      .single()
+
+    if (updateError) {
+      if (updateError.code === '23505') {
+        return NextResponse.json({ error: 'Ese WhatsApp ya está registrado' }, { status: 409 })
+      }
+      throw updateError
+    }
+
+    return NextResponse.json(data)
+  } catch (err) {
+    console.error('[PATCH /api/negocio]', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

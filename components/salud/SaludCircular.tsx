@@ -2,14 +2,14 @@
 
 import { cn } from '@/lib/utils'
 
-export function colorPorScore(score: number): string {
-  if (score >= 70) return '#16a34a' // verde
-  if (score >= 40) return '#f59e0b' // ámbar
-  return '#dc2626' // rojo
+export function colorPorSalud(indice: number): string {
+  if (indice >= 70) return '#16a34a'
+  if (indice >= 40) return '#f59e0b'
+  return '#dc2626'
 }
 
-export function PymScoreCircular({
-  score,
+export function SaludCircular({
+  indice,
   size = 150,
   grosor = 12,
   className,
@@ -17,7 +17,7 @@ export function PymScoreCircular({
   colorPista = 'rgba(148,163,184,0.25)',
   color,
 }: {
-  score: number
+  indice: number
   size?: number
   grosor?: number
   className?: string
@@ -25,11 +25,11 @@ export function PymScoreCircular({
   colorPista?: string
   color?: string
 }) {
-  const valor = Math.max(0, Math.min(100, score))
+  const valor = Math.max(0, Math.min(100, indice))
   const radio = (size - grosor) / 2
   const circ = 2 * Math.PI * radio
   const offset = circ * (1 - valor / 100)
-  const colorArco = color ?? colorPorScore(valor)
+  const colorArco = color ?? colorPorSalud(valor)
 
   return (
     <div className={cn('relative inline-flex items-center justify-center', className)} style={{ width: size, height: size }}>

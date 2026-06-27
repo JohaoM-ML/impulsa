@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { BienvenidaTour } from '@/components/onboarding/BienvenidaTour'
 import { AlertTriangle, ClipboardList, CreditCard, ShoppingCart, BarChart3, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { PymScoreCircular } from '@/components/pym-score/PymScoreCircular'
+import { SaludCircular } from '@/components/salud/SaludCircular'
 import { TextoFormateado } from '@/components/shared/TextoFormateado'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
@@ -73,10 +74,13 @@ export default function InicioPage() {
     )
   }
 
-  const score = resumen?.score ?? null
+  const indice = resumen?.indice ?? resumen?.score ?? null
 
   return (
     <div className="space-y-4 p-4">
+      <Suspense fallback={null}>
+        <BienvenidaTour />
+      </Suspense>
 
       {/* Saludo */}
       <div className="flex items-center gap-3">
@@ -120,12 +124,12 @@ export default function InicioPage() {
         </CardContent>
       </Card>
 
-      {/* PymScore */}
-      {nivel >= 2 && score !== null && (
+      {/* Salud financiera */}
+      {nivel >= 2 && indice !== null && (
         <Card className="border-0 bg-[#0f3d56] text-white">
           <CardContent className="flex items-center gap-4 p-4">
-            <PymScoreCircular
-              score={score}
+            <SaludCircular
+              indice={indice}
               size={110}
               color="#f59e0b"
               colorTexto="#ffffff"
@@ -133,18 +137,26 @@ export default function InicioPage() {
             />
             <div className="flex-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-white/70">
-                Tu PymScore
+                Tu {vocab('salud_financiera')}
               </p>
-              {resumen?.scoreDelta ? (
+              {(resumen?.indiceDelta ?? resumen?.scoreDelta) ? (
                 <p className="flex items-center gap-1 text-sm font-medium text-emerald-300">
                   <TrendingUp className="h-4 w-4" />
-                  {resumen.scoreDelta > 0 ? `+${resumen.scoreDelta}` : resumen.scoreDelta} esta semana
+                  {(resumen?.indiceDelta ?? resumen?.scoreDelta ?? 0) > 0
+                    ? `+${resumen?.indiceDelta ?? resumen?.scoreDelta}`
+                    : resumen?.indiceDelta ?? resumen?.scoreDelta}{' '}
+                  esta semana
                 </p>
               ) : null}
-              {resumen?.scoreExplicacion ? (
-                <TextoFormateado texto={resumen.scoreExplicacion} className="mt-1 text-xs text-white/80" />
+              {(resumen?.indiceExplicacion ?? resumen?.scoreExplicacion) ? (
+                <TextoFormateado
+                  texto={resumen.indiceExplicacion ?? resumen.scoreExplicacion ?? ''}
+                  className="mt-1 text-xs text-white/80"
+                />
               ) : (
-                <p className="mt-1 text-xs text-white/80">Registra tus ventas para mejorar tu score.</p>
+                <p className="mt-1 text-xs text-white/80">
+                  Registra tus ventas para mejorar tu salud financiera.
+                </p>
               )}
             </div>
           </CardContent>
@@ -159,13 +171,13 @@ export default function InicioPage() {
       </div>
 
       {/* Camino al crédito */}
-      <Link href="/pym-score">
+      <Link href="/salud">
         <Card>
           <CardContent className="flex items-center justify-between p-4">
             <div>
-              <p className="font-semibold">Camino a tu primer crédito</p>
+              <p className="font-semibold">Tu salud financiera</p>
               <p className="text-sm text-primary">
-                {nivel >= 3 ? '¡Ya calificas! Genera tu expediente →' : 'Sigue registrando para calificar →'}
+                {nivel >= 3 ? 'Genera tu reporte para microfinancieras →' : 'Sigue registrando para mejorar tu índice →'}
               </p>
             </div>
             <span className="text-2xl">🏆</span>

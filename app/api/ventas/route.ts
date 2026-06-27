@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getNegocioFromSession } from '@/lib/supabase/server'
-import { recalcularScore } from '@/lib/pym-score-server'
+import { recalcularSalud } from '@/lib/salud-server'
 
 export async function GET() {
   try {
@@ -79,9 +79,9 @@ export async function POST(request: NextRequest) {
 
     // Mantiene el PymScore al día tras cada venta (sin regenerar la explicación de Claude).
     try {
-      await recalcularScore(supabase, negocio)
+      await recalcularSalud(supabase, negocio)
     } catch (scoreErr) {
-      console.error('[POST /api/ventas] recalcularScore', scoreErr)
+      console.error('[POST /api/ventas] recalcularSalud', scoreErr)
     }
 
     return NextResponse.json({ ...ventaRow, items_venta: itemsVenta }, { status: 201 })

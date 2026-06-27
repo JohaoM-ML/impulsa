@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getNegocioFromSession } from '@/lib/supabase/server'
-import { calcularPymScore } from '@/lib/pym-score'
+import { calcularIndiceSalud } from '@/lib/salud'
 
 // Inventario realista de bodega peruana para que la demo se vea creíble.
 const INVENTARIO: Array<{
@@ -178,40 +178,49 @@ export async function POST() {
       return d.toISOString().split('T')[0]
     }
 
-    // ── PymScores semanales (para la gráfica de evolución) ──
-    // Empezamos en s=1 para no pisar la semana actual: esa la calcula el sistema
-    // en vivo (con COGS) la primera vez que se abre PymScore.
-    const scoresSemana: Array<{ semana: string; score: number; ventas: number; gastos: number; margen: number }> = []
+    // ── Salud financiera semanal (para la gráfica de evolución) ──
+    const scoresSemana: Array<{
+      semana: string
+      indice: number
+      ventas: number
+      gastos: number
+      margen: number
+      componentes: ReturnType<typeof calcularIndiceSalud>['componentes']
+    }> = []
     for (let s = 8; s >= 1; s--) {
       const ventas = 1200 + Math.round(Math.random() * 400) + (8 - s) * 30
       const gastos = 300 + Math.round(Math.random() * 120)
-      const { score, margen } = calcularPymScore({ ventas, gastos })
+      const { indice, margen, componentes } = calcularIndiceSalud({
+        ventas,
+        gastos,
+        ratioDeuda: 0.1,
+        diasActivos: 12,
+        diasPeriodo: 28,
+        coberturaLiquidez: 1.2,
+        variacionVentas: 0.05,
+      })
       const fecha = new Date()
       fecha.setDate(fecha.getDate() - s * 7)
       scoresSemana.push({
         semana: lunesDe(fecha),
-        score: Math.max(45, score - s * 2),
+        indice: Math.max(45, indice - s * 2),
         ventas,
         gastos,
         margen,
+        componentes,
       })
     }
 
     for (const sc of scoresSemana) {
-      await supabase.from('pym_scores').upsert(
+      await supabase.from('salud_financiera').upsert(
         {
           negocio_id: negocio.id,
           semana: sc.semana,
-          score: sc.score,
+          indice: sc.indice,
           ventas_semana: sc.ventas,
           gastos_semana: sc.gastos,
           margen: sc.margen,
-          componentes: {
-            regularidad: Math.min(100, sc.score + 10),
-            estabilidad: Math.max(40, sc.score + 3),
-            manejo_deudas: Math.max(40, sc.score - 4),
-            antiguedad: 60,
-          },
+          componentes: sc.componentes,
         },
         { onConflict: 'negocio_id,semana' }
       )

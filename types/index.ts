@@ -75,6 +75,19 @@ export interface Gasto {
   creado_en: string
 }
 
+export type CategoriaGastoFijo = 'alquiler' | 'luz' | 'agua' | 'internet' | 'sueldos' | 'otro'
+
+export interface GastoFijo {
+  id: string
+  negocio_id: string
+  categoria: CategoriaGastoFijo
+  descripcion?: string | null
+  monto: number
+  dia_pago?: number | null
+  activo: boolean
+  creado_en: string
+}
+
 export interface ProgresoUsuario {
   id: string
   user_id: string
@@ -99,24 +112,32 @@ export interface PreguntaOnboarding {
   orden?: number | null
 }
 
-export interface ComponentesPymScore {
-  regularidad?: number
-  estabilidad?: number
-  manejo_deudas?: number
-  antiguedad?: number
+export interface ComponentesSalud {
+  rentabilidad?: number
+  liquidez?: number
+  deudas?: number
+  consistencia?: number
+  crecimiento?: number
 }
 
-export interface PymScore {
+export interface SaludFinanciera {
   id: string
   negocio_id: string
   semana: string
-  score: number
+  indice: number
   ventas_semana?: number | null
   gastos_semana?: number | null
   margen?: number | null
   explicacion?: string | null
-  componentes?: ComponentesPymScore | null
+  componentes?: ComponentesSalud | null
   creado_en: string
+}
+
+/** @deprecated Usar SaludFinanciera */
+export type ComponentesPymScore = ComponentesSalud
+/** @deprecated Usar SaludFinanciera */
+export interface PymScore extends Omit<SaludFinanciera, 'indice'> {
+  score: number
 }
 
 export interface DashboardResumen {
@@ -129,8 +150,14 @@ export interface DashboardResumen {
   movimientosHoy: number
   productoTopHoy: { nombre: string; cantidad: number } | null
   stockBajo: number
+  indice: number | null
+  indiceDelta: number
+  indiceExplicacion: string | null
+  /** @deprecated usar indice */
   score: number | null
+  /** @deprecated usar indiceDelta */
   scoreDelta: number
+  /** @deprecated usar indiceExplicacion */
   scoreExplicacion: string | null
   fiadosCount: number
   fiadosTotal: number

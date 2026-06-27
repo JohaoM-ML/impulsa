@@ -13,16 +13,16 @@ import {
 import { FileText, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { PymScoreCircular } from '@/components/pym-score/PymScoreCircular'
+import { SaludCircular } from '@/components/salud/SaludCircular'
 import { TextoFormateado } from '@/components/shared/TextoFormateado'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
 import { useNivel } from '@/hooks/useNivel'
-import type { PymScore } from '@/types'
+import type { SaludFinanciera } from '@/types'
 
-interface RespuestaScore {
-  actual: PymScore | null
-  historico: { semana: string; score: number }[]
+interface RespuestaSalud {
+  actual: SaludFinanciera | null
+  historico: { semana: string; indice: number }[]
 }
 
 const ENTIDADES = [
@@ -32,16 +32,17 @@ const ENTIDADES = [
   { nombre: 'Mibanco', tipo: 'Banca para mypes' },
 ]
 
-const PILARES: { key: keyof NonNullable<PymScore['componentes']>; label: string }[] = [
-  { key: 'regularidad', label: 'Regularidad de ventas' },
-  { key: 'estabilidad', label: 'Estabilidad de flujo de caja' },
-  { key: 'manejo_deudas', label: 'Manejo de deudas' },
-  { key: 'antiguedad', label: 'Antigüedad del negocio' },
+const PILARES: { key: keyof NonNullable<SaludFinanciera['componentes']>; label: string }[] = [
+  { key: 'rentabilidad', label: 'Rentabilidad' },
+  { key: 'liquidez', label: 'Liquidez (cubres tus gastos fijos)' },
+  { key: 'deudas', label: 'Manejo de deudas' },
+  { key: 'consistencia', label: 'Consistencia (registras seguido)' },
+  { key: 'crecimiento', label: 'Crecimiento vs semana pasada' },
 ]
 
-export default function PymScorePage() {
+export default function SaludPage() {
   const { nivel, vocab } = useNivel()
-  const [data, setData] = useState<RespuestaScore | null>(null)
+  const [data, setData] = useState<RespuestaSalud | null>(null)
   const [loading, setLoading] = useState(true)
   const [generando, setGenerando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,8 +51,8 @@ export default function PymScorePage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/pym-score')
-      if (!res.ok) throw new Error('No se pudo cargar PymScore')
+      const res = await fetch('/api/salud')
+      if (!res.ok) throw new Error('No se pudo cargar tu salud financiera')
       setData(await res.json())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error')
@@ -63,8 +64,8 @@ export default function PymScorePage() {
   async function generar() {
     setGenerando(true)
     try {
-      const res = await fetch('/api/pym-score', { method: 'POST' })
-      if (!res.ok) throw new Error('No se pudo calcular el score')
+      const res = await fetch('/api/salud', { method: 'POST' })
+      if (!res.ok) throw new Error('No se pudo calcular el índice')
       await cargar()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error')
@@ -81,7 +82,7 @@ export default function PymScorePage() {
     return (
       <div className="p-8 text-center">
         <p className="text-muted-foreground">
-          Sube al nivel 2 para desbloquear {vocab('pym_score')}.
+          Sube al nivel 2 para desbloquear {vocab('salud_financiera')}.
         </p>
       </div>
     )
@@ -93,19 +94,19 @@ export default function PymScorePage() {
   const actual = data?.actual ?? null
   const historico = data?.historico ?? []
   const delta =
-    historico.length >= 2 ? historico[historico.length - 1].score - historico[historico.length - 2].score : 0
+    historico.length >= 2 ? historico[historico.length - 1].indice - historico[historico.length - 2].indice : 0
 
   if (!actual) {
     return (
       <div className="space-y-4 p-4">
-        <h1 className="text-2xl font-bold text-[#0f3d56]">{vocab('pym_score')}</h1>
+        <h1 className="text-2xl font-bold text-[#0f3d56]">{vocab('salud_financiera')}</h1>
         <Card>
           <CardContent className="p-6 text-center">
             <p className="mb-4 text-muted-foreground">
-              Aún no tienes un score. Registra ventas y gastos, luego calcúlalo.
+              Aún no tienes un índice. Registra ventas y gastos, luego calcúlalo.
             </p>
             <Button className="min-h-[48px]" onClick={generar} disabled={generando}>
-              {generando ? 'Calculando...' : 'Calcular mi score'}
+              {generando ? 'Calculando...' : 'Calcular mi salud financiera'}
             </Button>
           </CardContent>
         </Card>
@@ -117,13 +118,12 @@ export default function PymScorePage() {
 
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-bold text-[#0f3d56]">Tu {vocab('pym_score')}</h1>
+      <h1 className="text-2xl font-bold text-[#0f3d56]">Tu {vocab('salud_financiera')}</h1>
 
-      {/* Score principal */}
       <Card className="border-0 bg-[#0f3d56] text-white">
         <CardContent className="flex flex-col items-center gap-2 p-6">
-          <PymScoreCircular
-            score={actual.score}
+          <SaludCircular
+            indice={actual.indice}
             size={170}
             grosor={14}
             color="#f59e0b"
@@ -148,10 +148,9 @@ export default function PymScorePage() {
         </Card>
       )}
 
-      {/* Componentes */}
       <Card>
         <CardContent className="space-y-3 p-4">
-          <p className="font-semibold text-[#0f3d56]">Cómo se compone tu score</p>
+          <p className="font-semibold text-[#0f3d56]">Cómo se compone tu salud financiera</p>
           {PILARES.map((p) => {
             const valor = Number(componentes[p.key] ?? 0)
             return (
@@ -169,11 +168,10 @@ export default function PymScorePage() {
         </CardContent>
       </Card>
 
-      {/* Evolución */}
       {historico.length > 1 && (
         <Card>
           <CardContent className="p-4">
-            <p className="mb-3 font-semibold text-[#0f3d56]">Evolución de tu score</p>
+            <p className="mb-3 font-semibold text-[#0f3d56]">Evolución de tu salud financiera</p>
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={historico.map((h, i) => ({ ...h, etiqueta: `S${i + 1}` }))}>
@@ -181,7 +179,7 @@ export default function PymScorePage() {
                   <XAxis dataKey="etiqueta" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={30} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="score" stroke="#f59e0b" strokeWidth={2} dot />
+                  <Line type="monotone" dataKey="indice" stroke="#f59e0b" strokeWidth={2} dot />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -189,25 +187,23 @@ export default function PymScorePage() {
         </Card>
       )}
 
-      {/* Expediente de crédito */}
       <Card className="border-0 bg-gradient-to-br from-amber-400 to-amber-500 text-amber-950">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            <p className="font-bold">Mi Expediente de Crédito</p>
+            <p className="font-bold">Reporte de Salud Financiera</p>
           </div>
           <p className="text-sm">
             {nivel >= 3
-              ? 'Ya calificas. Genera tu expediente y preséntalo a una microfinanciera.'
-              : 'Sigue mejorando tu score para generar tu expediente de crédito.'}
+              ? 'Genera un reporte con tu historial para compartir con una microfinanciera.'
+              : 'Sigue mejorando tu salud financiera para generar tu reporte.'}
           </p>
           <Button className="w-full bg-[#0f3d56] text-white hover:bg-[#0f3d56]/90" disabled={nivel < 3}>
-            <FileText className="h-4 w-4" /> Generar mi expediente
+            <FileText className="h-4 w-4" /> Generar mi reporte
           </Button>
         </CardContent>
       </Card>
 
-      {/* Entidades aliadas */}
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Entidades aliadas
@@ -225,7 +221,7 @@ export default function PymScorePage() {
       </div>
 
       <Button variant="outline" className="w-full min-h-[48px]" onClick={generar} disabled={generando}>
-        {generando ? 'Recalculando...' : 'Recalcular score'}
+        {generando ? 'Recalculando...' : 'Recalcular salud financiera'}
       </Button>
     </div>
   )

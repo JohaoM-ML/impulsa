@@ -9,9 +9,13 @@ import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
 import { BarraXP } from '@/components/nivel/BarraXP'
 import { TextoFormateado } from '@/components/shared/TextoFormateado'
+import { PasoContacto } from '@/components/onboarding/PasoContacto'
+import { PasoGastosFijos } from '@/components/onboarding/PasoGastosFijos'
 import { calcularNivel } from '@/lib/nivel'
 import { NOMBRES_NIVEL, type Nivel } from '@/lib/vocabulario'
 import type { OpcionOnboarding, PreguntaOnboarding } from '@/types'
+
+type EtapaOnboarding = 'contacto' | 'gastos' | 'quiz' | 'resultado'
 
 interface ResultadoOnboarding {
   nivel_nuevo: Nivel
@@ -19,7 +23,6 @@ interface ResultadoOnboarding {
   perfil_ia?: { explicacion: string; recomendaciones: string[] }
 }
 
-// jsonb a veces llega como string desde algunos drivers: normalizamos a array.
 function normalizarOpciones(opciones: unknown): OpcionOnboarding[] {
   if (Array.isArray(opciones)) return opciones as OpcionOnboarding[]
   if (typeof opciones === 'string') {
@@ -35,6 +38,7 @@ function normalizarOpciones(opciones: unknown): OpcionOnboarding[] {
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const [etapa, setEtapa] = useState<EtapaOnboarding>('contacto')
   const [preguntas, setPreguntas] = useState<PreguntaOnboarding[]>([])
   const [paso, setPaso] = useState(0)
   const [respuestas, setRespuestas] = useState<
@@ -68,6 +72,7 @@ export default function OnboardingPage() {
   const preguntaActual = preguntas[paso]
 
   function elegir(opcion: OpcionOnboarding) {
+    if (!preguntaActual) return
     const nuevas = [
       ...respuestas.filter((r) => r.pregunta_id !== preguntaActual.id),
       {
@@ -98,7 +103,9 @@ export default function OnboardingPage() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'No se pudo guardar el onboarding')
       }
-      setResultado(await res.json())
+      const data = await res.json()
+      setResultado(data)
+      setEtapa('resultado')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar')
     } finally {
@@ -107,10 +114,11 @@ export default function OnboardingPage() {
   }
 
   if (loading) return <EstadoCargando mensaje="Preparando tu perfil..." />
-  if (error) return <EstadoError mensaje={error} onReintentar={() => window.location.reload()} />
+  if (error && etapa !== 'quiz') {
+    return <EstadoError mensaje={error} onReintentar={() => window.location.reload()} />
+  }
 
-  // Pantalla de resultado con la categorización del agente Claude.
-  if (resultado) {
+  if (etapa === 'resultado' && resultado) {
     const nivel = resultado.nivel_nuevo
     return (
       <div className="mx-auto min-h-screen max-w-[390px] space-y-4 p-4">
@@ -148,7 +156,7 @@ export default function OnboardingPage() {
             <Button
               className="w-full min-h-[48px]"
               onClick={() => {
-                router.push('/inicio')
+                router.push('/inicio?tour=1')
                 router.refresh()
               }}
             >
@@ -161,37 +169,58 @@ export default function OnboardingPage() {
   }
 
   if (enviando) return <EstadoCargando mensaje="Analizando tus respuestas con IA..." />
-  if (!preguntaActual) return <EstadoError mensaje="No hay preguntas disponibles" />
 
   return (
     <div className="mx-auto min-h-screen max-w-[390px] space-y-4 p-4">
       <header>
-        <h1 className="text-xl font-bold">Conozcamos tu negocio</h1>
-        <p className="text-sm text-muted-foreground">
-          Pregunta {paso + 1} de {preguntas.length}
-        </p>
+        <h1 className="text-xl font-bold">
+          {etapa === 'contacto' && 'Conectemos tu WhatsApp'}
+          {etapa === 'gastos' && 'Tus gastos fijos'}
+          {etapa === 'quiz' && 'Conozcamos tu negocio'}
+        </h1>
+        {etapa === 'quiz' && (
+          <p className="text-sm text-muted-foreground">
+            Pregunta {paso + 1} de {preguntas.length}
+          </p>
+        )}
       </header>
 
-      <BarraXP nivel={nivelPreview} xp={xpAcumulado} />
+      {etapa === 'contacto' && (
+        <PasoContacto onContinuar={() => setEtapa('gastos')} />
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{preguntaActual.pregunta}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {preguntaActual.opciones.map((opcion) => (
-            <Button
-              key={opcion.id}
-              variant="outline"
-              className="h-auto min-h-[48px] w-full justify-start whitespace-normal py-3 text-left"
-              disabled={enviando}
-              onClick={() => elegir(opcion)}
-            >
-              {opcion.texto}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
+      {etapa === 'gastos' && (
+        <PasoGastosFijos onContinuar={() => setEtapa('quiz')} />
+      )}
+
+      {etapa === 'quiz' && (
+        <>
+          <BarraXP nivel={nivelPreview} xp={xpAcumulado} />
+          {!preguntaActual ? (
+            <EstadoError mensaje="No hay preguntas disponibles" />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{preguntaActual.pregunta}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {preguntaActual.opciones.map((opcion) => (
+                  <Button
+                    key={opcion.id}
+                    variant="outline"
+                    className="h-auto min-h-[48px] w-full justify-start whitespace-normal py-3 text-left"
+                    disabled={enviando}
+                    onClick={() => elegir(opcion)}
+                  >
+                    {opcion.texto}
+                  </Button>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </>
+      )}
     </div>
   )
 }

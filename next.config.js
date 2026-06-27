@@ -15,7 +15,7 @@ const nextConfig = {
       { source: '/inventario', destination: '/mi-negocio', permanent: false },
       { source: '/inventario/nueva-guia', destination: '/registrar', permanent: false },
       { source: '/gastos', destination: '/registrar', permanent: false },
-      { source: '/clientes', destination: '/mi-negocio', permanent: false },
+      { source: '/pym-score', destination: '/salud', permanent: false },
     ]
   },
 }

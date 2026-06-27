@@ -1,5 +1,5 @@
 import type { Negocio } from '@/types'
-import { recalcularScore } from '@/lib/pym-score-server'
+import { recalcularSalud } from '@/lib/salud-server'
 import type { ServiceClient, TipoAccion } from '@/lib/chatbot/tipos'
 
 export interface ResultadoAccion {
@@ -244,9 +244,9 @@ export async function ejecutarAccion(
 
   if (resultado.ok) {
     try {
-      await recalcularScore(supabase, negocio)
+      await recalcularSalud(supabase, negocio)
     } catch (err) {
-      console.error('[chatbot] recalcularScore', err)
+      console.error('[chatbot] recalcularSalud', err)
     }
   }
   return resultado

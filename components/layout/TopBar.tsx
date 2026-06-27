@@ -9,7 +9,7 @@ const SUBTITULOS: Record<string, string> = {
   '/inicio': '',
   '/registrar': 'Registrar',
   '/mi-negocio': 'Mi Negocio',
-  '/pym-score': 'PymScore',
+  '/salud': 'Salud Financiera',
   '/aprender': 'Aprender',
 }
 

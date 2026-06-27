@@ -46,8 +46,8 @@ export async function GET() {
         .eq('negocio_id', negocio.id)
         .gte('creado_en', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       supabase
-        .from('pym_scores')
-        .select('score, explicacion, semana')
+        .from('salud_financiera')
+        .select('indice, explicacion, semana')
         .eq('negocio_id', negocio.id)
         .order('semana', { ascending: false })
         .limit(2),
@@ -98,9 +98,9 @@ export async function GET() {
       (p) => Number(p.stock_actual) <= Number(p.stock_minimo)
     ).length
 
-    const score = scores?.[0]?.score ?? null
-    const scoreDelta = scores && scores.length >= 2 ? (scores[0].score - scores[1].score) : 0
-    const scoreExplicacion = scores?.[0]?.explicacion ?? null
+    const indice = scores?.[0]?.indice ?? null
+    const indiceDelta = scores && scores.length >= 2 ? (scores[0].indice - scores[1].indice) : 0
+    const indiceExplicacion = scores?.[0]?.explicacion ?? null
 
     const fiados = clientes ?? []
     const fiadosTotal = fiados.reduce((s, c) => s + Number(c.deuda_total), 0)
@@ -135,9 +135,12 @@ export async function GET() {
       movimientosHoy: (ventasHoyDetalle?.length ?? 0) + (gastosHoy?.length ?? 0),
       productoTopHoy,
       stockBajo,
-      score,
-      scoreDelta,
-      scoreExplicacion,
+      indice,
+      indiceDelta,
+      indiceExplicacion,
+      score: indice,
+      scoreDelta: indiceDelta,
+      scoreExplicacion: indiceExplicacion,
       fiadosCount: fiados.length,
       fiadosTotal,
       ventasSemana: ventasSemanaArr,

@@ -370,7 +370,7 @@ export default function AprenderPage() {
       <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-3">
         <span className="text-2xl">🦙</span>
         <p className="text-sm text-muted-foreground">
-          Completa los módulos. Cada uno suma puntos a tu PymScore.
+          Completa los módulos. Cada uno suma puntos a tu salud financiera.
         </p>
       </div>
 

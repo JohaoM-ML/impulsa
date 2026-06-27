@@ -27,7 +27,7 @@ export function BotonWhatsApp({
       rel="noopener noreferrer"
       aria-label="Chatear con Chaski por WhatsApp"
     >
-      <Card className="border-0 bg-[#25D366] text-white transition-transform active:scale-[0.98]">
+      <Card className="animate-float border-0 bg-[#25D366] text-white transition-transform active:scale-[0.98]">
         <CardContent className="flex items-center gap-3 p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20">
             <MessageCircle className="h-6 w-6" />

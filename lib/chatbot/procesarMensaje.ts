@@ -2,6 +2,7 @@ import type { Negocio } from '@/types'
 import { getAnthropicClient, MODELO_CLAUDE } from '@/lib/claude'
 import { construirCompraInteligente } from '@/lib/compra-inteligente-server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { NOMBRES_NIVEL, vocab, type Nivel } from '@/lib/vocabulario'
 import { SYSTEM_PROMPT_ASESOR } from '@/lib/chatbot/prompt'
 import {
   cargarConversacion,
@@ -10,6 +11,7 @@ import {
   guardarConversacion,
 } from '@/lib/chatbot/contexto'
 import { ejecutarAccion, esAccionDeEscritura } from '@/lib/chatbot/acciones'
+import { esAccionDeConsulta, resolverConsultaAsesor } from '@/lib/chatbot/consultas'
 import { accionDatosCompletos, limpiarDatosAccion } from '@/lib/chatbot/validacion'
 import type {
   AccionChatbot,
@@ -18,8 +20,6 @@ import type {
   TipoMensajeChatbot,
   TurnoHistorial,
 } from '@/lib/chatbot/tipos'
-
-const NOMBRES_NIVEL = ['', 'Bodeguero', 'Emprendedor', 'Comerciante', 'Empresario']
 
 function textoDeMensaje(mensaje: string, tipo: TipoMensajeChatbot): string {
   if (tipo !== 'button_reply') return mensaje
@@ -66,7 +66,7 @@ function formatearPedidoWhatsApp(resumen: Awaited<ReturnType<typeof construirCom
 
 function construirContextoSistema(
   negocio: Negocio,
-  nivel: number,
+  nivel: Nivel,
   resumen: string,
   estado: EstadoConversacion
 ): string {
@@ -98,6 +98,13 @@ function construirContextoSistema(
 Nivel del dueño: ${nivel} (${NOMBRES_NIVEL[nivel] ?? 'Bodeguero'})
 Estado de la conversación: ${estado.estado_flujo}
 ${partes.join('\n')}
+
+VOCABULARIO DEL NIVEL:
+- ganancia: ${vocab('ganancia', nivel)}
+- gastos: ${vocab('gasto', nivel)}
+- inventario bajo: ${vocab('inventario_bajo', nivel)}
+- deudas por cobrar: ${vocab('deuda_cobrar', nivel)}
+- salud financiera: ${vocab('salud_financiera', nivel)}
 
 RESUMEN DEL NEGOCIO:
 ${resumen}`
@@ -149,6 +156,20 @@ export async function procesarMensaje(
     return { respuesta }
   }
 
+  if (tipo === 'button_reply' && mensaje === 'ver_score') {
+    const respuesta = await resolverConsultaAsesor(supabase, negocio, 'consultar_salud', nivel)
+    await guardarConversacion(supabase, negocio.id, telefono, {
+      estado_flujo: 'idle',
+      contexto: {},
+      historial: [
+        ...estado.historial,
+        { rol: 'usuario', texto: textoUsuario },
+        { rol: 'asesor', texto: respuesta },
+      ],
+    })
+    return { respuesta }
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
       respuesta: `Hola ${negocio.nombre}, te leo. Por ahora no puedo procesar tu mensaje, inténtalo más tarde.`,
@@ -196,7 +217,10 @@ export async function procesarMensaje(
     !!pendiente &&
     (accion?.estado === 'confirmada' || (tipo === 'button_reply' && mensaje === 'confirmar'))
 
-  if (confirmando && pendiente) {
+  if (accion && esAccionDeConsulta(accion.tipo)) {
+    respuestaFinal = await resolverConsultaAsesor(supabase, negocio, accion.tipo, nivel)
+    botones = undefined
+  } else if (confirmando && pendiente) {
     const datos = Object.keys(pendiente.datos ?? {}).length ? pendiente.datos : accion?.datos ?? {}
     const resultado = await ejecutarAccion(supabase, negocio, pendiente.tipo, datos)
     if (!resultado.ok) respuestaFinal = `${resultado.resumen} ¿Lo intentamos de nuevo?`

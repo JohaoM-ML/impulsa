@@ -86,17 +86,32 @@ async function registrarVenta(
     .single()
   if (error || !venta) return { ok: false, resumen: 'No pude registrar la venta.' }
 
-  await supabase.from('items_venta').insert(items.map((i) => ({ venta_id: venta.id, ...i })))
+  const { error: itemsError } = await supabase
+    .from('items_venta')
+    .insert(items.map((i) => ({ venta_id: venta.id, ...i })))
+  if (itemsError) {
+    await supabase.from('ventas').delete().eq('id', venta.id).eq('negocio_id', negocio.id)
+    return { ok: false, resumen: 'No pude guardar el detalle de la venta.' }
+  }
 
+  let stockConErrores = false
   for (const i of items) {
     if (i.producto_id) {
       const prod = inventario.find((p) => p.id === i.producto_id)
       const nuevoStock = Math.max(0, num(prod?.stock_actual) - i.cantidad)
-      await supabase
+      const { error: stockError } = await supabase
         .from('productos')
         .update({ stock_actual: nuevoStock, actualizado_en: new Date().toISOString() })
         .eq('id', i.producto_id)
         .eq('negocio_id', negocio.id)
+      if (stockError) stockConErrores = true
+    }
+  }
+
+  if (stockConErrores) {
+    return {
+      ok: true,
+      resumen: `Venta registrada: S/ ${total.toFixed(2)}. Revisa el stock de esos productos.`,
     }
   }
 
@@ -126,7 +141,7 @@ async function registrarCompra(
     total += cantidad * costo
     const prod = buscarProducto(inventario, nombre)
     if (prod) {
-      await supabase
+      const { error } = await supabase
         .from('productos')
         .update({
           stock_actual: num(prod.stock_actual) + cantidad,
@@ -135,8 +150,9 @@ async function registrarCompra(
         })
         .eq('id', prod.id)
         .eq('negocio_id', negocio.id)
+      if (error) return { ok: false, resumen: `No pude actualizar el stock de ${prod.nombre}.` }
     } else {
-      await supabase.from('productos').insert({
+      const { error } = await supabase.from('productos').insert({
         negocio_id: negocio.id,
         nombre,
         stock_actual: cantidad,
@@ -145,16 +161,23 @@ async function registrarCompra(
         unidad: 'unidades',
         activo: true,
       })
+      if (error) return { ok: false, resumen: `No pude crear el producto ${nombre}.` }
     }
   }
 
   const totalFinal = num(datos.total, total)
-  await supabase.from('gastos').insert({
+  const { error: gastoError } = await supabase.from('gastos').insert({
     negocio_id: negocio.id,
     descripcion: 'Compra de mercadería (WhatsApp)',
     monto: totalFinal,
     categoria: 'mercaderia',
   })
+  if (gastoError) {
+    return {
+      ok: true,
+      resumen: `Compra ingresada al stock, pero revisa el gasto de S/ ${totalFinal.toFixed(2)}.`,
+    }
+  }
 
   return { ok: true, resumen: `Compra registrada: S/ ${totalFinal.toFixed(2)} e ingresada al stock` }
 }
@@ -204,9 +227,17 @@ async function registrarFiado(
   const nuevaDeuda = Math.max(0, num(actual?.deuda_total) + delta)
 
   if (actual) {
-    await supabase.from(tabla).update({ deuda_total: nuevaDeuda }).eq('id', actual.id).eq('negocio_id', negocio.id)
+    const { error } = await supabase
+      .from(tabla)
+      .update({ deuda_total: nuevaDeuda })
+      .eq('id', actual.id)
+      .eq('negocio_id', negocio.id)
+    if (error) return { ok: false, resumen: 'No pude actualizar ese fiado.' }
   } else {
-    await supabase.from(tabla).insert({ negocio_id: negocio.id, nombre, deuda_total: Math.max(0, delta) })
+    const { error } = await supabase
+      .from(tabla)
+      .insert({ negocio_id: negocio.id, nombre, deuda_total: Math.max(0, delta) })
+    if (error) return { ok: false, resumen: 'No pude registrar ese fiado.' }
   }
 
   const quien = direccion === 'por_cobrar' ? `${nombre} te debe` : `le debes a ${nombre}`
@@ -244,7 +275,7 @@ export async function ejecutarAccion(
 
   if (resultado.ok) {
     try {
-      await recalcularSalud(supabase, negocio)
+      await recalcularSalud(supabase, negocio, { regenerarExplicacion: true })
     } catch (err) {
       console.error('[chatbot] recalcularSalud', err)
     }

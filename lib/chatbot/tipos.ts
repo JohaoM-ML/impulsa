@@ -10,9 +10,12 @@ export type TipoAccion =
   | 'registrar_gasto'
   | 'registrar_compra'
   | 'registrar_fiado'
+  | 'consultar_resumen'
   | 'consultar_flujo'
   | 'consultar_deudas'
   | 'consultar_inventario'
+  | 'consultar_salud'
+  | 'consultar_pedido'
   | 'ninguna'
 
 export type EstadoAccion = 'pendiente_confirmacion' | 'confirmada' | 'n/a'

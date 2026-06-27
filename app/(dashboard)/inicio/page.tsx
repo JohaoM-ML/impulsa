@@ -165,7 +165,7 @@ export default function InicioPage() {
       </div>
 
       {/* Chat por WhatsApp */}
-      <BotonWhatsApp nota="En sandbox: primero envía 'join <código>' al número de Impulsa." />
+      <BotonWhatsApp />
 
       {/* Camino al crédito */}
       <Link href="/salud">

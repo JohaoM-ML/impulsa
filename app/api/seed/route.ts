@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getNegocioFromSession } from '@/lib/supabase/server'
 import { calcularIndiceSalud } from '@/lib/salud'
+import { recalcularSalud } from '@/lib/salud-server'
 
 // Inventario realista de bodega peruana para que la demo se vea creíble.
 const INVENTARIO: Array<{
@@ -70,7 +71,14 @@ export async function POST() {
       .eq('negocio_id', negocio.id)
 
     if ((count ?? 0) > 0) {
-      return NextResponse.json({ mensaje: 'El negocio ya tiene datos. Seed omitido.', productos: count })
+      // Aunque ya haya datos, regeneramos la explicación de la semana actual
+      // para que use el formato nuevo (resumen + viñetas cortas) en la demo.
+      try {
+        await recalcularSalud(supabase, negocio, { regenerarExplicacion: true })
+      } catch (saludErr) {
+        console.error('[POST /api/seed] recalcularSalud (existente)', saludErr)
+      }
+      return NextResponse.json({ mensaje: 'El negocio ya tiene datos. Explicación actualizada.', productos: count })
     }
 
     // ── Productos ──
@@ -224,6 +232,14 @@ export async function POST() {
         },
         { onConflict: 'negocio_id,semana' }
       )
+    }
+
+    // Calcula la salud de la semana actual a partir de las ventas recién creadas
+    // y genera la explicación con el formato nuevo (resumen + viñetas).
+    try {
+      await recalcularSalud(supabase, negocio, { regenerarExplicacion: true })
+    } catch (saludErr) {
+      console.error('[POST /api/seed] recalcularSalud', saludErr)
     }
 
     return NextResponse.json({

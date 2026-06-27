@@ -31,7 +31,16 @@ export interface Negocio {
   nombre: string
   rubro?: string | null
   telefono_wsp?: string | null
+  hora_cierre_dia?: string
+  resumen_diario_activo?: boolean
+  ultimo_resumen_enviado?: string | null
   creado_en: string
+}
+
+export interface ConfiguracionNegocio {
+  hora_cierre_dia: string
+  resumen_diario_activo: boolean
+  telefono_wsp: string | null
 }
 
 export interface Producto {
@@ -168,4 +177,48 @@ export interface OCRProductoDetectado {
   nombre: string
   cantidad: number
   precio_unit?: number
+}
+
+export interface TopProductoItem {
+  id: string | null
+  nombre: string
+  cantidad: number
+  ingresos: number
+  stock_actual: number
+  stock_minimo: number
+  unidad: string
+  categoria: string | null
+  sugerencia_pedido: number
+  stock_bajo: boolean
+}
+
+export interface TopResumen {
+  porCantidad: TopProductoItem[]
+  porIngresos: TopProductoItem[]
+  sinVentas: TopProductoItem[]
+  masRentables: { nombre: string; margen: number }[]
+  categorias: string[]
+  periodo: string
+}
+
+export interface AbastecimientoItem {
+  id: string
+  nombre: string
+  unidad: string
+  categoria: string | null
+  stock_actual: number
+  stock_minimo: number
+  vendido_periodo: number
+  sugerencia_pedido: number
+  costo_estimado: number
+  stock_bajo: boolean
+}
+
+export interface AbastecimientoResumen {
+  periodo: string
+  productos_stock_bajo: number
+  productos_a_reabastecer: number
+  unidades_sugeridas: number
+  costo_estimado_total: number
+  productos: AbastecimientoItem[]
 }

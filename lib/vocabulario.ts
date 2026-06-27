@@ -17,6 +17,12 @@ export const VOCABULARIO = {
     3: 'inventario crítico',
     4: 'punto de reorden alcanzado',
   },
+  abastecer: {
+    1: 'qué te falta comprar',
+    2: 'lista de reabastecimiento',
+    3: 'plan de abastecimiento',
+    4: 'orden de compra sugerida',
+  },
   deuda_cobrar: {
     1: 'te deben',
     2: 'cuentas por cobrar',

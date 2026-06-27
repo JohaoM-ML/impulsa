@@ -35,6 +35,7 @@ export async function updateSession(request: NextRequest) {
     '/mi-negocio',
     '/salud',
     '/aprender',
+    '/configuracion',
     '/onboarding',
     // Redirecciones legacy (next.config.js)
     '/ventas',

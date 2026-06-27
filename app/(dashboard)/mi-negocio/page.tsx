@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Search, TrendingDown, TrendingUp } from 'lucide-react'
+import { Search, ShoppingCart, TrendingDown, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,8 +34,9 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { useNivel } from '@/hooks/useNivel'
 import { toast } from '@/hooks/use-toast'
 import { calcularGanancia } from '@/lib/finanzas'
+import { etiquetaPeriodo, type PeriodoAbastecimiento } from '@/lib/abastecimiento'
 import { formatSoles, cn } from '@/lib/utils'
-import type { Cliente, Producto, Proveedor } from '@/types'
+import type { AbastecimientoResumen, Cliente, Producto, Proveedor, TopProductoItem, TopResumen } from '@/types'
 
 interface FlujoData {
   serie: { semana: string; ventas: number; gastos: number }[]
@@ -44,13 +45,44 @@ interface FlujoData {
   totalCosto: number
   totalGastosRegistrados: number
 }
-interface TopData {
-  masVendidos: { nombre: string; ingresos: number; cantidad: number }[]
-  masRentables: { nombre: string; margen: number }[]
-}
+
+type VistaTop = 'cantidad' | 'ingresos' | 'sin_ventas'
+type PeriodoTop = '7d' | '30d' | '90d' | 'todo'
 
 // Capitaliza la primera letra de un término del vocabulario para usarlo como etiqueta.
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+const PERIODOS: { value: PeriodoAbastecimiento; label: string }[] = [
+  { value: '7d', label: '7 días' },
+  { value: '30d', label: '30 días' },
+  { value: '90d', label: '90 días' },
+]
+
+function SelectorPeriodo({
+  periodo,
+  onChange,
+}: {
+  periodo: PeriodoAbastecimiento
+  onChange: (p: PeriodoAbastecimiento) => void
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {PERIODOS.map((p) => (
+        <button
+          key={p.value}
+          type="button"
+          onClick={() => onChange(p.value)}
+          className={cn(
+            'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium',
+            periodo === p.value ? 'bg-brand-dark text-white' : 'bg-background text-muted-foreground'
+          )}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function MiNegocioPage() {
   return (
@@ -117,23 +149,27 @@ function TabFlujo() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 items-stretch gap-2">
         <Card>
-          <CardContent className="p-3">
-            <p className="text-[11px] uppercase text-muted-foreground">Ventas</p>
-            <p className="text-lg font-bold text-primary">{formatSoles(data.totalVentas)}</p>
+          <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
+            <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">Ventas</p>
+            <p className="whitespace-nowrap text-[15px] font-bold tracking-tight tabular-nums text-primary">
+              {formatSoles(data.totalVentas)}
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-[11px] uppercase text-muted-foreground">{cap(vocab('gasto'))}</p>
-            <p className="text-lg font-bold text-destructive">{formatSoles(data.totalGastos)}</p>
+          <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
+            <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">{cap(vocab('gasto'))}</p>
+            <p className="whitespace-nowrap text-[15px] font-bold tracking-tight tabular-nums text-destructive">
+              {formatSoles(data.totalGastos)}
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-[11px] uppercase text-muted-foreground">{cap(vocab('ganancia'))}</p>
-            <p className={cn('text-lg font-bold', ganancia >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+          <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
+            <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">{cap(vocab('ganancia'))}</p>
+            <p className={cn('whitespace-nowrap text-[15px] font-bold tracking-tight tabular-nums', ganancia >= 0 ? 'text-emerald-600' : 'text-destructive')}>
               {formatSoles(ganancia)}
             </p>
           </CardContent>
@@ -192,23 +228,34 @@ function TabFlujo() {
 function TabInventario() {
   const { vocab } = useNivel()
   const [productos, setProductos] = useState<Producto[]>([])
+  const [abastecimiento, setAbastecimiento] = useState<AbastecimientoResumen | null>(null)
+  const [periodo, setPeriodo] = useState<PeriodoAbastecimiento>('30d')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState('Todos')
+  const [verSoloAbastecer, setVerSoloAbastecer] = useState(false)
 
   const cargar = useCallback(() => {
     setLoading(true)
     setError(false)
-    fetch('/api/inventario')
-      .then((r) => {
+    Promise.all([
+      fetch('/api/inventario').then((r) => {
         if (!r.ok) throw new Error('fetch inventario')
         return r.json()
+      }),
+      fetch(`/api/mi-negocio/abastecimiento?periodo=${periodo}`).then((r) => {
+        if (!r.ok) throw new Error('fetch abastecimiento')
+        return r.json()
+      }),
+    ])
+      .then(([inv, abas]) => {
+        setProductos(Array.isArray(inv) ? inv : [])
+        setAbastecimiento(abas)
       })
-      .then((d) => setProductos(Array.isArray(d) ? d : []))
       .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [])
+  }, [periodo])
 
   useEffect(() => {
     cargar()
@@ -220,10 +267,16 @@ function TabInventario() {
     return ['Todos', ...Array.from(set)]
   }, [productos])
 
+  const idsAbastecer = useMemo(
+    () => new Set((abastecimiento?.productos ?? []).map((p) => p.id)),
+    [abastecimiento]
+  )
+
   const filtrados = productos.filter((p) => {
     const okCat = categoria === 'Todos' || p.categoria === categoria
     const okBusq = p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-    return okCat && okBusq
+    const okAbas = !verSoloAbastecer || idsAbastecer.has(p.id)
+    return okCat && okBusq && okAbas
   })
 
   const stockBajo = productos.filter((p) => Number(p.stock_actual) <= Number(p.stock_minimo))
@@ -236,6 +289,79 @@ function TabInventario() {
 
   return (
     <div className="space-y-3">
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="space-y-3 p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="flex items-center gap-2 font-semibold text-brand-dark">
+                <ShoppingCart className="h-4 w-4" />
+                {cap(vocab('abastecer'))}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Según lo que vendiste en los últimos {etiquetaPeriodo(periodo)}
+              </p>
+            </div>
+          </div>
+
+          <SelectorPeriodo periodo={periodo} onChange={setPeriodo} />
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg border bg-background p-2.5">
+              <p className="text-[11px] uppercase text-muted-foreground">{cap(vocab('inventario_bajo'))}</p>
+              <p className="text-lg font-bold text-amber-600">{abastecimiento?.productos_stock_bajo ?? stockBajo.length}</p>
+            </div>
+            <div className="rounded-lg border bg-background p-2.5">
+              <p className="text-[11px] uppercase text-muted-foreground">Unidades a pedir</p>
+              <p className="text-lg font-bold text-brand-dark">{abastecimiento?.unidades_sugeridas ?? 0}</p>
+            </div>
+          </div>
+
+          {(abastecimiento?.costo_estimado_total ?? 0) > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Costo estimado de compra: <b className="text-foreground">{formatSoles(abastecimiento?.costo_estimado_total ?? 0)}</b>
+            </p>
+          )}
+
+          {(abastecimiento?.productos.length ?? 0) > 0 ? (
+            <div className="space-y-2">
+              {abastecimiento!.productos.slice(0, 5).map((p) => (
+                <div
+                  key={p.id}
+                  className={cn(
+                    'flex items-center justify-between rounded-lg border bg-background p-2.5 text-sm',
+                    p.stock_bajo && 'border-l-4 border-l-amber-400'
+                  )}
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="truncate font-medium">{p.nombre}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Tienes {p.stock_actual} · Vendiste {p.vendido_periodo} {p.unidad}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-bold text-primary">+{p.sugerencia_pedido}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground">pedir</p>
+                  </div>
+                </div>
+              ))}
+              {abastecimiento!.productos.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setVerSoloAbastecer(true)}
+                  className="w-full text-center text-xs font-medium text-primary"
+                >
+                  Ver los {abastecimiento!.productos.length} productos en la lista ↓
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Por ahora tu stock alcanza según tus ventas recientes. ¡Sigue registrando!
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -250,6 +376,7 @@ function TabInventario() {
         {categorias.map((c) => (
           <button
             key={c}
+            type="button"
             onClick={() => setCategoria(c)}
             className={cn(
               'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium',
@@ -261,10 +388,20 @@ function TabInventario() {
         ))}
       </div>
 
-      {stockBajo.length > 0 && (
+      {verSoloAbastecer && (
+        <button
+          type="button"
+          onClick={() => setVerSoloAbastecer(false)}
+          className="text-xs font-medium text-primary"
+        >
+          ← Ver todo el inventario
+        </button>
+      )}
+
+      {stockBajo.length > 0 && !verSoloAbastecer && (
         <Card className="border-l-4 border-l-amber-500">
           <CardContent className="p-3 text-sm">
-            <b>{stockBajo.length}</b> {vocab('inventario_bajo')}
+            <b>{stockBajo.length}</b> productos con {vocab('inventario_bajo')}
           </CardContent>
         </Card>
       )}
@@ -272,16 +409,22 @@ function TabInventario() {
       <div className="space-y-2">
         {filtrados.map((p) => {
           const bajo = Number(p.stock_actual) <= Number(p.stock_minimo)
+          const sugerencia = abastecimiento?.productos.find((a) => a.id === p.id)
           return (
             <Card key={p.id} className={bajo ? 'border-l-4 border-l-amber-400' : undefined}>
               <CardContent className="flex items-center justify-between p-3">
-                <div>
+                <div className="min-w-0 pr-2">
                   <p className="font-medium leading-tight">{p.nombre}</p>
                   <p className="text-xs text-muted-foreground">
                     Costo {formatSoles(Number(p.precio_compra ?? 0))} · Venta {formatSoles(Number(p.precio_venta ?? 0))}
                   </p>
+                  {sugerencia && sugerencia.sugerencia_pedido > 0 && (
+                    <p className="mt-1 text-xs text-primary">
+                      Sugerencia: pedir {sugerencia.sugerencia_pedido} {p.unidad}
+                    </p>
+                  )}
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <p className={cn('text-lg font-bold', bajo ? 'text-amber-600' : 'text-brand-dark')}>
                     {p.stock_actual}
                   </p>
@@ -292,7 +435,9 @@ function TabInventario() {
           )
         })}
         {!filtrados.length && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Sin productos.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            {verSoloAbastecer ? 'Ningún producto coincide con tu búsqueda.' : 'Sin productos.'}
+          </p>
         )}
       </div>
     </div>
@@ -300,72 +445,236 @@ function TabInventario() {
 }
 
 // ───────────────────────── Top ─────────────────────────
+const PERIODOS_TOP: { id: PeriodoTop; label: string }[] = [
+  { id: '7d', label: '7 días' },
+  { id: '30d', label: '30 días' },
+  { id: '90d', label: '3 meses' },
+  { id: 'todo', label: 'Todo' },
+]
+
+const VISTAS_TOP: { id: VistaTop; label: string; icon: typeof TrendingUp }[] = [
+  { id: 'cantidad', label: 'Para pedir', icon: TrendingUp },
+  { id: 'ingresos', label: 'Por ingresos', icon: TrendingUp },
+  { id: 'sin_ventas', label: 'No se vende', icon: TrendingDown },
+]
+
 function TabTop() {
-  const [data, setData] = useState<TopData | null>(null)
+  const { nivel, vocab } = useNivel()
+  const [data, setData] = useState<TopResumen | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [vista, setVista] = useState<VistaTop>('cantidad')
+  const [periodo, setPeriodo] = useState<PeriodoTop>('30d')
+  const [categoria, setCategoria] = useState('Todos')
+  const [busqueda, setBusqueda] = useState('')
 
   const cargar = useCallback(() => {
     setLoading(true)
     setError(false)
-    fetch('/api/mi-negocio/top')
+    fetch(`/api/mi-negocio/top?periodo=${periodo}`)
       .then((r) => {
         if (!r.ok) throw new Error('fetch top')
         return r.json()
       })
-      .then((d) => setData(d))
+      .then((d: TopResumen) => setData(d))
       .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [])
+  }, [periodo])
 
   useEffect(() => {
     cargar()
   }, [cargar])
 
+  const categorias = useMemo(() => {
+    if (!data) return ['Todos']
+    return ['Todos', ...data.categorias]
+  }, [data])
+
+  const listaBase = useMemo((): TopProductoItem[] => {
+    if (!data) return []
+    if (vista === 'cantidad') return data.porCantidad
+    if (vista === 'ingresos') return data.porIngresos
+    return data.sinVentas
+  }, [data, vista])
+
+  const filtrados = useMemo(() => {
+    return listaBase.filter((p) => {
+      const okCat = categoria === 'Todos' || p.categoria === categoria
+      const okBusq = p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+      return okCat && okBusq
+    })
+  }, [listaBase, categoria, busqueda])
+
   if (loading) return <EstadoCargando />
   if (error) return <EstadoError mensaje="No pudimos cargar tus productos top." onReintentar={cargar} />
   if (!data) return <EstadoVacio mensaje="Aún no hay datos suficientes." />
 
+  const periodoLabel = PERIODOS_TOP.find((p) => p.id === periodo)?.label ?? periodo
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="p-4">
-          <p className="mb-3 flex items-center gap-2 font-semibold text-primary">
-            <TrendingUp className="h-4 w-4" /> Más vendidos (ingresos)
-          </p>
-          <div className="space-y-2">
-            {data.masVendidos.map((p, i) => (
-              <div key={p.nombre} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-700">
-                    {i + 1}
-                  </span>
-                  {p.nombre}
-                </span>
-                <span className="font-semibold text-primary">{formatSoles(p.ingresos)}</span>
-              </div>
-            ))}
-            {!data.masVendidos.length && <p className="text-sm text-muted-foreground">Aún sin ventas.</p>}
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-3">
+      {/* Vista principal */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {VISTAS_TOP.map((v) => {
+          const Icon = v.icon
+          return (
+            <button
+              key={v.id}
+              onClick={() => setVista(v.id)}
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-medium min-h-[40px]',
+                vista === v.id ? 'bg-brand-dark text-white' : 'bg-background text-muted-foreground'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {v.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Periodo */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {PERIODOS_TOP.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setPeriodo(p.id)}
+            className={cn(
+              'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium',
+              periodo === p.id ? 'border-primary bg-primary/10 text-primary' : 'bg-background text-muted-foreground'
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar producto"
+          className="pl-9"
+        />
+      </div>
+
+      {categorias.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {categorias.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategoria(c)}
+              className={cn(
+                'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium',
+                categoria === c ? 'bg-brand-dark text-white' : 'bg-background text-muted-foreground'
+              )}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-4">
-          <p className="mb-3 flex items-center gap-2 font-semibold text-brand-dark">💎 Más rentables (margen)</p>
+          <p className="mb-1 text-sm font-semibold text-brand-dark">
+            {vista === 'cantidad' && `Más vendidos por cantidad · ${periodoLabel}`}
+            {vista === 'ingresos' && `Más vendidos por ingresos · ${periodoLabel}`}
+            {vista === 'sin_ventas' && `Sin ventas en ${periodoLabel.toLowerCase()}`}
+          </p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            {vista === 'cantidad' && 'Ordenado por unidades vendidas. Te sugerimos cuánto pedir según tu stock.'}
+            {vista === 'ingresos' && 'Ordenado por plata que generó cada producto.'}
+            {vista === 'sin_ventas' && 'Productos en tu inventario que no tuvieron ventas en este periodo.'}
+          </p>
+
           <div className="space-y-2">
-            {data.masRentables.map((p) => (
-              <div key={p.nombre} className="flex items-center justify-between text-sm">
-                <span>{p.nombre}</span>
-                <span className="font-semibold text-brand-dark">{p.margen}%</span>
+            {filtrados.map((p, i) => (
+              <div
+                key={`${p.id ?? p.nombre}-${i}`}
+                className={cn(
+                  'rounded-lg border p-3 text-sm',
+                  vista === 'sin_ventas' && 'border-amber-200 bg-amber-50/50',
+                  vista !== 'sin_ventas' && p.stock_bajo && 'border-l-4 border-l-amber-400'
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="flex items-center gap-2 font-medium leading-tight">
+                    {vista !== 'sin_ventas' && (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-700">
+                        {i + 1}
+                      </span>
+                    )}
+                    {p.nombre}
+                  </span>
+                  {vista === 'ingresos' && (
+                    <span className="shrink-0 font-semibold text-primary">{formatSoles(p.ingresos)}</span>
+                  )}
+                  {vista === 'cantidad' && (
+                    <span className="shrink-0 font-semibold text-primary">
+                      {p.cantidad} {p.unidad}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {vista !== 'sin_ventas' && vista !== 'cantidad' && (
+                    <span>{p.cantidad} {p.unidad} vendidas</span>
+                  )}
+                  {vista === 'cantidad' && (
+                    <span>Ingresos: {formatSoles(p.ingresos)}</span>
+                  )}
+                  {vista === 'ingresos' && (
+                    <span>{p.cantidad} {p.unidad} vendidas</span>
+                  )}
+                  <span>
+                    Stock: <b className={p.stock_bajo ? 'text-amber-600' : 'text-foreground'}>{p.stock_actual}</b>
+                  </span>
+                  {p.categoria && <span>{p.categoria}</span>}
+                </div>
+
+                {vista === 'cantidad' && p.sugerencia_pedido > 0 && (
+                  <p className="mt-2 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                    Sugerencia: pedir <b>{p.sugerencia_pedido}</b> {p.unidad}
+                    {p.stock_bajo && ` · ${cap(vocab('inventario_bajo'))}`}
+                  </p>
+                )}
+
+                {vista === 'sin_ventas' && (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Tienes <b>{p.stock_actual}</b> {p.unidad} en stock sin movimiento.
+                  </p>
+                )}
               </div>
             ))}
-            {!data.masRentables.length && (
-              <p className="text-sm text-muted-foreground">Agrega costos y precios para ver tu margen.</p>
+
+            {!filtrados.length && (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                {vista === 'sin_ventas'
+                  ? '¡Bien! Todos tus productos tuvieron ventas en este periodo.'
+                  : 'Aún sin ventas en este periodo.'}
+              </p>
             )}
           </div>
         </CardContent>
       </Card>
+
+      {nivel >= 3 && data.masRentables.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="mb-3 font-semibold text-brand-dark">💎 Más rentables (margen)</p>
+            <div className="space-y-2">
+              {data.masRentables.map((p) => (
+                <div key={p.nombre} className="flex items-center justify-between text-sm">
+                  <span>{p.nombre}</span>
+                  <span className="font-semibold text-brand-dark">{p.margen}%</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

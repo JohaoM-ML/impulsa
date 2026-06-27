@@ -1,19 +1,5 @@
 import { transcribirAudio } from '@/lib/openai'
-
-function credencialesTwilio(): { user: string; pass: string } | null {
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const apiKeySid = process.env.TWILIO_API_KEY_SID
-  const apiKeySecret = process.env.TWILIO_API_KEY_SECRET
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-
-  if (sid && apiKeySid && apiKeySecret) {
-    return { user: apiKeySid, pass: apiKeySecret }
-  }
-  if (sid && authToken) {
-    return { user: sid, pass: authToken }
-  }
-  return null
-}
+import { credencialesTwilio } from '@/lib/twilio'
 
 function extensionDesdeContentType(contentType: string | undefined): string {
   if (!contentType) return 'audio.ogg'

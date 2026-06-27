@@ -1,8 +1,9 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 import { NOMBRES_NIVEL, type Nivel } from '@/lib/vocabulario'
 import { createBrowserClient } from '@/lib/supabase/client'
 
@@ -12,6 +13,7 @@ const SUBTITULOS: Record<string, string> = {
   '/mi-negocio': 'Mi Negocio',
   '/salud': 'Salud Financiera',
   '/aprender': 'Aprender',
+  '/configuracion': 'Configuración',
 }
 
 function subtituloDe(pathname: string): string {
@@ -53,6 +55,13 @@ export function TopBar({ nivel = 1 }: { nivel?: number }) {
         <span className="rounded-full bg-brand-tint px-3 py-1 text-xs font-bold text-brand-dark ring-1 ring-primary/20">
           Nivel: {NOMBRES_NIVEL[(nivel as Nivel) ?? 1]}
         </span>
+        <Link
+          href="/configuracion"
+          aria-label="Configuración"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-brand-tint hover:text-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Settings className="h-4 w-4" />
+        </Link>
         <button
           type="button"
           onClick={cerrarSesion}

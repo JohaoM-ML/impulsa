@@ -188,9 +188,10 @@ export default function InicioPage() {
             <Link href="/mi-negocio">
               <Card className="border-l-4 border-l-amber-500">
                 <CardContent className="flex items-center gap-3 p-3 text-sm">
-                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
                   <span>
-                    <b>{resumen?.stockBajo}</b> {vocab('inventario_bajo')}
+                    <b>{resumen?.stockBajo}</b> productos con {vocab('inventario_bajo')}.{' '}
+                    <span className="text-primary">Ver {vocab('abastecer')} →</span>
                   </span>
                 </CardContent>
               </Card>

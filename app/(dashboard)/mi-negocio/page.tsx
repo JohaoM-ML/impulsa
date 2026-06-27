@@ -30,6 +30,7 @@ import {
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
 import { EstadoVacio } from '@/components/estados/EstadoVacio'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { useNivel } from '@/hooks/useNivel'
 import { toast } from '@/hooks/use-toast'
 import { calcularGanancia } from '@/lib/finanzas'
@@ -54,7 +55,11 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 export default function MiNegocioPage() {
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-bold text-[#0A3B2A]">Mi Negocio</h1>
+      <PageHeader
+        eyebrow="Entender"
+        title="Mi Negocio"
+        description="Mira tu flujo, inventario, productos top y fiados en un solo lugar."
+      />
       <Tabs defaultValue="flujo">
         <TabsList>
           <TabsTrigger value="flujo">Flujo</TabsTrigger>
@@ -146,7 +151,7 @@ function TabFlujo() {
 
       <Card>
         <CardContent className="p-4">
-          <p className="mb-3 font-semibold text-[#0A3B2A]">Ventas vs {cap(vocab('gasto'))} (semanal)</p>
+          <p className="mb-3 font-semibold text-brand-dark">Ventas vs {cap(vocab('gasto'))} (semanal)</p>
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.serie}>
@@ -248,7 +253,7 @@ function TabInventario() {
             onClick={() => setCategoria(c)}
             className={cn(
               'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium',
-              categoria === c ? 'bg-[#0A3B2A] text-white' : 'bg-background text-muted-foreground'
+              categoria === c ? 'bg-brand-dark text-white' : 'bg-background text-muted-foreground'
             )}
           >
             {c} {c === 'Todos' && `· ${productos.length}`}
@@ -277,7 +282,7 @@ function TabInventario() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className={cn('text-lg font-bold', bajo ? 'text-amber-600' : 'text-[#0A3B2A]')}>
+                  <p className={cn('text-lg font-bold', bajo ? 'text-amber-600' : 'text-brand-dark')}>
                     {p.stock_actual}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground">stock</p>
@@ -347,12 +352,12 @@ function TabTop() {
 
       <Card>
         <CardContent className="p-4">
-          <p className="mb-3 flex items-center gap-2 font-semibold text-[#0A3B2A]">💎 Más rentables (margen)</p>
+          <p className="mb-3 flex items-center gap-2 font-semibold text-brand-dark">💎 Más rentables (margen)</p>
           <div className="space-y-2">
             {data.masRentables.map((p) => (
               <div key={p.nombre} className="flex items-center justify-between text-sm">
                 <span>{p.nombre}</span>
-                <span className="font-semibold text-[#0A3B2A]">{p.margen}%</span>
+                <span className="font-semibold text-brand-dark">{p.margen}%</span>
               </div>
             ))}
             {!data.masRentables.length && (

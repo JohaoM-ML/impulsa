@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, X } from 'lucide-react'
+import { AlertCircle, ArrowRight, Check, Lock, Mail, Store, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { REGLAS_PASSWORD, fuerzaPassword, passwordEsValida, reglasCumplidas } from '@/lib/password'
 import { cn } from '@/lib/utils'
@@ -31,7 +31,7 @@ export default function RegistroPage() {
     e.preventDefault()
     if (!passwordOk) {
       setTocadoPassword(true)
-      setError('Tu contraseña no cumple los requisitos de seguridad.')
+      setError('Tu contraseña aún no cumple los requisitos de abajo.')
       return
     }
     setLoading(true)
@@ -54,7 +54,7 @@ export default function RegistroPage() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
-      setError(data.error || 'Error al crear el negocio')
+      setError(data.error || 'No pudimos crear tu negocio. Inténtalo otra vez.')
       setLoading(false)
       return
     }
@@ -64,55 +64,80 @@ export default function RegistroPage() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Crear cuenta</CardTitle>
+    <Card className="rounded-2xl shadow-md">
+      <CardHeader className="p-5 pb-3">
+        <CardTitle className="text-xl">Crea tu cuenta</CardTitle>
+        <CardDescription>Es gratis y toma menos de un minuto.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="nombre">Nombre del negocio</Label>
-            <Input
-              id="nombre"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Mi bodega"
-              required
-            />
+      <CardContent className="p-5 pt-0">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="space-y-1.5">
+            <Label htmlFor="nombre">Nombre de tu negocio</Label>
+            <div className="relative">
+              <Store
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="nombre"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Bodega Doña Rosa"
+                required
+                className="pl-10"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="email">Correo</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
+            <div className="relative">
+              <Mail
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                placeholder="tucorreo@ejemplo.com"
+                className="pl-10"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="password">Contraseña</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onBlur={() => setTocadoPassword(true)}
-              autoComplete="new-password"
-              required
-            />
+            <div className="relative">
+              <Lock
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setTocadoPassword(true)}
+                autoComplete="new-password"
+                placeholder="Crea una contraseña segura"
+                required
+                className="pl-10"
+                aria-describedby="password-reglas"
+              />
+            </div>
 
             {password && (
-              <div className="space-y-2 pt-1">
-                <div className="flex gap-1">
+              <div id="password-reglas" className="space-y-2 pt-1">
+                <div className="flex gap-1" aria-hidden="true">
                   {[1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
                       className={cn(
-                        'h-1.5 flex-1 rounded-full',
+                        'h-1.5 flex-1 rounded-full transition-colors',
                         fuerza.nivel >= i ? COLOR_FUERZA[fuerza.nivel] : 'bg-muted'
                       )}
                     />
@@ -121,7 +146,7 @@ export default function RegistroPage() {
                 {fuerza.label && (
                   <p className="text-xs text-muted-foreground">Seguridad: {fuerza.label}</p>
                 )}
-                <ul className="space-y-1">
+                <ul className="grid grid-cols-1 gap-1">
                   {REGLAS_PASSWORD.map((r) => {
                     const ok = reglas[r.id]
                     return (
@@ -132,7 +157,14 @@ export default function RegistroPage() {
                           ok ? 'text-primary' : 'text-muted-foreground'
                         )}
                       >
-                        {ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                        <span
+                          className={cn(
+                            'flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
+                            ok ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+                          )}
+                        >
+                          {ok ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        </span>
                         {r.label}
                       </li>
                     )
@@ -142,18 +174,33 @@ export default function RegistroPage() {
             )}
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p
+              role="alert"
+              className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              {error}
+            </p>
+          )}
 
-          <Button type="submit" className="w-full" disabled={loading || (tocadoPassword && !passwordOk)}>
-            {loading ? 'Creando...' : 'Registrarme'}
+          <Button
+            type="submit"
+            size="xl"
+            className="w-full"
+            disabled={loading || (tocadoPassword && !passwordOk)}
+          >
+            {loading ? 'Creando tu cuenta...' : 'Crear mi cuenta'}
+            {!loading && <ArrowRight className="h-4 w-4" />}
           </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            ¿Ya tienes cuenta?{' '}
-            <Link href="/login" className="text-primary underline">
-              Inicia sesión
-            </Link>
-          </p>
         </form>
+
+        <p className="mt-5 text-center text-sm text-muted-foreground">
+          ¿Ya tienes cuenta?{' '}
+          <Link href="/login" className="font-semibold text-primary underline-offset-4 hover:underline">
+            Inicia sesión
+          </Link>
+        </p>
       </CardContent>
     </Card>
   )

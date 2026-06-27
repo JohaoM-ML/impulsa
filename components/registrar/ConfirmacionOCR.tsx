@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageHeader } from '@/components/shared/PageHeader'
 import type { OCRProductoDetectado, Producto } from '@/types'
 import { matchProductoInventario } from '@/lib/inventario-match'
 
@@ -47,21 +48,22 @@ export function ConfirmacionOCR({
 
   return (
     <div className="space-y-4 p-4">
-      <h2 className="text-lg font-bold">{titulo}</h2>
-      <p className="text-sm text-muted-foreground">
-        Confirma que los datos sean correctos antes de guardar.
-      </p>
+      <PageHeader
+        eyebrow="Confirmar"
+        title={titulo}
+        description="Revisa nombres, cantidades y precios antes de guardar."
+      />
 
       <div className="space-y-3">
         {items.map((item, i) => {
           const enInventario = inventario ? !!matchProductoInventario(item.nombre, inventario) : null
           return (
-          <Card key={i}>
+          <Card key={i} className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-sm">Producto {i + 1}</CardTitle>
                 {enInventario === true && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800">
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                     En inventario
                   </span>
                 )}
@@ -105,13 +107,14 @@ export function ConfirmacionOCR({
       </div>
 
       <Button
-        className="w-full min-h-[48px]"
+        size="xl"
+        className="w-full"
         disabled={loading || !items.length}
         onClick={() => onConfirmar(items)}
       >
         {loading ? 'Guardando...' : labelConfirmar}
       </Button>
-      <Button variant="outline" className="w-full min-h-[48px]" onClick={onCancelar} disabled={loading}>
+      <Button variant="outline" className="w-full" onClick={onCancelar} disabled={loading}>
         {labelCancelar}
       </Button>
     </div>

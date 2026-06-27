@@ -32,15 +32,15 @@ export function TopBar({ nivel = 1 }: { nivel?: number }) {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur">
+    <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur-xl">
       <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-brand-dark">
+        <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-brand-dark shadow-sm shadow-brand-dark/20">
           <Image
             src="/logo-impulsa.png"
             alt="Impulsa"
-            width={32}
-            height={32}
-            className="h-8 w-8 object-cover"
+            width={36}
+            height={36}
+            className="h-9 w-9 object-cover"
             priority
           />
         </span>
@@ -50,14 +50,14 @@ export function TopBar({ nivel = 1 }: { nivel?: number }) {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">
+        <span className="rounded-full bg-brand-tint px-3 py-1 text-xs font-bold text-brand-dark ring-1 ring-primary/20">
           Nivel: {NOMBRES_NIVEL[(nivel as Nivel) ?? 1]}
         </span>
         <button
           type="button"
           onClick={cerrarSesion}
           aria-label="Cerrar sesión"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-brand-tint hover:text-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <LogOut className="h-4 w-4" />
         </button>

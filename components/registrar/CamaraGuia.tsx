@@ -18,8 +18,10 @@ export function CamaraGuia({ onCaptura }: { onCaptura: (base64: string) => void 
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed p-8">
-      <Camera className="h-12 w-12 text-muted-foreground" />
+    <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-primary/30 bg-brand-tint/45 p-8">
+      <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-background text-primary shadow-sm">
+        <Camera className="h-8 w-8" />
+      </span>
       <p className="text-center text-sm text-muted-foreground">
         Toma una foto de tu guía de proveedor o sube una imagen
       </p>
@@ -35,7 +37,8 @@ export function CamaraGuia({ onCaptura }: { onCaptura: (base64: string) => void 
         }}
       />
       <Button
-        className="min-h-[48px] w-full"
+        size="xl"
+        className="w-full"
         onClick={() => inputRef.current?.click()}
       >
         Seleccionar foto

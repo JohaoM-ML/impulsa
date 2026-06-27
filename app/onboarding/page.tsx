@@ -11,6 +11,7 @@ import { BarraXP } from '@/components/nivel/BarraXP'
 import { TextoFormateado } from '@/components/shared/TextoFormateado'
 import { PasoContacto } from '@/components/onboarding/PasoContacto'
 import { PasoGastosFijos } from '@/components/onboarding/PasoGastosFijos'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { calcularNivel } from '@/lib/nivel'
 import { NOMBRES_NIVEL, type Nivel } from '@/lib/vocabulario'
 import type { OpcionOnboarding, PreguntaOnboarding } from '@/types'
@@ -121,7 +122,13 @@ export default function OnboardingPage() {
   if (etapa === 'resultado' && resultado) {
     const nivel = resultado.nivel_nuevo
     return (
-      <div className="mx-auto min-h-screen max-w-[390px] space-y-4 p-4">
+      <div className="min-h-[100dvh] bg-brand-tint">
+      <div className="mx-auto min-h-[100dvh] max-w-[390px] space-y-4 bg-background p-4">
+        <PageHeader
+          eyebrow="Listo"
+          title="Ya conocemos tu negocio"
+          description="Ahora Impulsa adaptará el lenguaje y las funciones a tu nivel."
+        />
         <Card className="border-primary/40 bg-primary/5">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
@@ -165,25 +172,26 @@ export default function OnboardingPage() {
           </CardContent>
         </Card>
       </div>
+      </div>
     )
   }
 
   if (enviando) return <EstadoCargando mensaje="Analizando tus respuestas con IA..." />
 
   return (
-    <div className="mx-auto min-h-screen max-w-[390px] space-y-4 p-4">
-      <header>
-        <h1 className="text-xl font-bold">
-          {etapa === 'contacto' && 'Conectemos tu WhatsApp'}
-          {etapa === 'gastos' && 'Tus gastos fijos'}
-          {etapa === 'quiz' && 'Conozcamos tu negocio'}
-        </h1>
-        {etapa === 'quiz' && (
-          <p className="text-sm text-muted-foreground">
-            Pregunta {paso + 1} de {preguntas.length}
-          </p>
-        )}
-      </header>
+    <div className="min-h-[100dvh] bg-brand-tint">
+    <div className="mx-auto min-h-[100dvh] max-w-[390px] space-y-4 bg-background p-4">
+      <PageHeader
+        eyebrow={etapa === 'quiz' ? `Pregunta ${paso + 1} de ${preguntas.length}` : 'Primeros pasos'}
+        title={
+          etapa === 'contacto'
+            ? 'Conectemos tu WhatsApp'
+            : etapa === 'gastos'
+              ? 'Tus gastos fijos'
+              : 'Conozcamos tu negocio'
+        }
+        description="Responde rápido para adaptar Impulsa a tu forma de trabajar."
+      />
 
       {etapa === 'contacto' && (
         <PasoContacto onContinuar={() => setEtapa('gastos')} />
@@ -221,6 +229,7 @@ export default function OnboardingPage() {
           {error && <p className="text-sm text-destructive">{error}</p>}
         </>
       )}
+    </div>
     </div>
   )
 }

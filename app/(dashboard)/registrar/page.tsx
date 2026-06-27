@@ -20,6 +20,7 @@ import { ConfirmacionOCR } from '@/components/registrar/ConfirmacionOCR'
 import { GrabadoraVoz } from '@/components/registrar/GrabadoraVoz'
 import { SugerirAgregarInventario } from '@/components/registrar/SugerirAgregarInventario'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { toast } from '@/hooks/use-toast'
 import { matchProductoInventario, productosSinInventario } from '@/lib/inventario-match'
 import { formatSoles } from '@/lib/utils'
@@ -314,20 +315,23 @@ export default function RegistrarPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <div>
-        <h1 className="text-2xl font-bold text-[#0A3B2A]">Registrar movimiento</h1>
-        <p className="text-sm text-muted-foreground">Elige cómo prefieres registrarlo.</p>
-      </div>
+      <PageHeader
+        eyebrow="Operar"
+        title="Registra tu movimiento"
+        description="Foto, voz o manual. Tú eliges; Impulsa ordena los datos."
+      />
 
       {/* Toggle Venta / Compra */}
-      <div className="flex gap-2 rounded-full bg-muted p-1">
+      <div className="grid grid-cols-2 gap-2 rounded-2xl bg-brand-tint p-1 ring-1 ring-primary/10">
         {(['venta', 'compra'] as Tipo[]).map((t) => (
           <button
             key={t}
             onClick={() => setTipo(t)}
             className={cn(
-              'flex-1 rounded-full py-2 text-sm font-medium capitalize transition-colors',
-              tipo === t ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'
+              'min-h-[48px] rounded-xl px-3 py-2 text-sm font-bold capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              tipo === t
+                ? 'bg-background text-brand-dark shadow-sm'
+                : 'text-muted-foreground hover:bg-background/60 hover:text-brand-dark'
             )}
           >
             {t === 'venta' ? 'Venta' : 'Compra / Reposición'}
@@ -484,9 +488,9 @@ export default function RegistrarPage() {
 
 function ChaskiHint({ texto }: { texto: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-3">
+    <div className="flex items-start gap-3 rounded-2xl border border-primary/15 bg-brand-tint/70 p-3">
       <span className="text-2xl">🦙</span>
-      <p className="text-sm text-muted-foreground">{texto}</p>
+      <p className="text-sm text-brand-dark">{texto}</p>
     </div>
   )
 }

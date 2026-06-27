@@ -58,19 +58,19 @@ export function GrabadoraVoz({
 
   if (!soportado) {
     return (
-      <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+      <div className="rounded-3xl border border-dashed border-primary/30 bg-brand-tint/45 p-6 text-center text-sm text-muted-foreground">
         Tu navegador no permite grabar audio. Usa la pestaña Manual o Foto.
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed p-8">
+    <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-primary/30 bg-brand-tint/45 p-8">
       <button
         type="button"
         disabled={disabled}
         onClick={grabando ? detener : iniciar}
-        className={`flex h-20 w-20 items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
+        className={`flex h-20 w-20 items-center justify-center rounded-3xl shadow-sm transition-colors disabled:opacity-50 ${
           grabando ? 'animate-pulse bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground'
         }`}
       >

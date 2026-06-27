@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { toast } from '@/hooks/use-toast'
 import { notificarCambioNivel } from '@/hooks/useNivel'
 import { porcentajeNivelActual } from '@/lib/nivel'
@@ -216,7 +217,7 @@ export default function AprenderPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-xl font-bold text-[#0A3B2A]">
+          <h1 className="text-xl font-bold text-brand-dark">
             Examen · {NOMBRES_NIVEL[nivel]}
           </h1>
         </div>
@@ -276,7 +277,7 @@ export default function AprenderPage() {
   if (vista === 'resultado' && resultado) {
     return (
       <div className="space-y-4 p-4">
-        <h1 className="text-xl font-bold text-[#0A3B2A]">Resultado del examen</h1>
+        <h1 className="text-xl font-bold text-brand-dark">Resultado del examen</h1>
 
         <Card className={resultado.aprobado ? 'border-emerald-400' : 'border-amber-400'}>
           <CardContent className="space-y-2 p-5 text-center">
@@ -346,10 +347,14 @@ export default function AprenderPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-bold text-[#0A3B2A]">Aprender</h1>
+      <PageHeader
+        eyebrow="Crecer"
+        title="Aprender"
+        description="Lecciones cortas para subir de nivel y tomar mejores decisiones."
+      />
 
       {/* Nivel actual */}
-      <Card className="border-0 bg-[#0A3B2A] text-white">
+      <Card className="border-0 bg-brand-dark text-white">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-3">
             <span className="text-3xl">🦙</span>
@@ -367,9 +372,9 @@ export default function AprenderPage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-3">
+      <div className="flex items-start gap-3 rounded-2xl border border-primary/15 bg-brand-tint/70 p-3">
         <span className="text-2xl">🦙</span>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-brand-dark">
           Completa los módulos. Cada uno suma puntos a tu salud financiera.
         </p>
       </div>
@@ -382,21 +387,21 @@ export default function AprenderPage() {
           return (
             <Card
               key={m.id}
-              className={m.bloqueado ? 'opacity-60' : undefined}
+              className={m.bloqueado ? 'opacity-60' : 'transition-transform active:scale-[0.99]'}
             >
               <CardContent className="p-4">
                 <button
-                  className="flex w-full items-center gap-3 text-left"
+                    className="flex w-full items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   disabled={m.bloqueado}
                   onClick={() => setAbierto(expandido ? null : m.id)}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-tint">
                     {estado === 'completado' ? (
                       <CheckCircle2 className="h-5 w-5 text-primary" />
                     ) : estado === 'bloqueado' ? (
                       <Lock className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <span className="text-sm font-bold text-[#0A3B2A]">{i + 1}</span>
+                      <span className="text-sm font-bold text-brand-dark">{i + 1}</span>
                     )}
                   </span>
                   <div className="flex-1">
@@ -437,7 +442,7 @@ export default function AprenderPage() {
       {/* Examen de nivel */}
       <Card className={examenListo ? 'border-primary/40' : 'opacity-60'}>
         <CardContent className="flex items-center gap-3 p-4">
-          <GraduationCap className="h-6 w-6 text-[#0A3B2A]" />
+          <GraduationCap className="h-6 w-6 text-brand-dark" />
           <div className="flex-1">
             <p className="font-medium">Examen de nivel</p>
             <p className="text-xs text-muted-foreground">

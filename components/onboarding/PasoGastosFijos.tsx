@@ -130,7 +130,7 @@ export function PasoGastosFijos({ onContinuar }: PasoGastosFijosProps) {
         </div>
 
         {items.length > 0 && (
-          <ul className="space-y-2 rounded-lg border p-3">
+          <ul className="space-y-2 rounded-2xl border bg-brand-tint/45 p-3">
             {items.map((item) => (
               <li key={item.categoria} className="flex items-center justify-between text-sm">
                 <span>
@@ -150,11 +150,16 @@ export function PasoGastosFijos({ onContinuar }: PasoGastosFijosProps) {
           </ul>
         )}
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
 
         <div className="flex flex-col gap-2">
           <Button
-            className="w-full min-h-[48px]"
+            size="xl"
+            className="w-full"
             onClick={guardarYContinuar}
             disabled={loading}
           >

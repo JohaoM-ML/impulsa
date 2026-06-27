@@ -18,8 +18,8 @@ export function NavInferior({ nivel = 1 }: { nivel?: number }) {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background">
-      <div className="mx-auto flex max-w-[390px] justify-around">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
+      <div className="mx-auto flex max-w-[390px] justify-around rounded-3xl border border-border/70 bg-background/95 p-1 shadow-xl shadow-brand-dark/15 backdrop-blur-xl">
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`)
           return (
@@ -28,8 +28,10 @@ export function NavInferior({ nivel = 1 }: { nivel?: number }) {
               href={href}
               data-tour={href.replace('/', '')}
               className={cn(
-                'flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px]',
-                active ? 'text-primary font-medium' : 'text-muted-foreground'
+                'flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                active
+                  ? 'bg-brand-tint text-brand-dark'
+                  : 'text-muted-foreground hover:bg-brand-tint/60 hover:text-brand-dark'
               )}
             >
               <Icon className="h-5 w-5" />

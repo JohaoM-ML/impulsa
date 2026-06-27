@@ -17,6 +17,7 @@ import { SaludCircular } from '@/components/salud/SaludCircular'
 import { ExplicacionColapsable } from '@/components/shared/ExplicacionColapsable'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { useNivel } from '@/hooks/useNivel'
 import type { SaludFinanciera } from '@/types'
 
@@ -80,10 +81,19 @@ export default function SaludPage() {
 
   if (nivel < 2) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-muted-foreground">
+      <div className="space-y-4 p-4">
+        <PageHeader
+          eyebrow="Próximo desbloqueo"
+          title={vocab('salud_financiera')}
+          description="Sigue registrando y aprendiendo para desbloquear tu índice."
+        />
+        <Card className="bg-brand-tint/60">
+          <CardContent className="p-6 text-center">
+        <p className="text-sm text-muted-foreground">
           Sube al nivel 2 para desbloquear {vocab('salud_financiera')}.
         </p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -99,7 +109,11 @@ export default function SaludPage() {
   if (!actual) {
     return (
       <div className="space-y-4 p-4">
-        <h1 className="text-2xl font-bold capitalize text-[#0A3B2A]">{vocab('salud_financiera')}</h1>
+        <PageHeader
+          eyebrow="Crecer"
+          title={vocab('salud_financiera')}
+          description="Un índice simple para saber si tu negocio va mejorando."
+        />
         <Card>
           <CardContent className="p-6 text-center">
             <p className="mb-4 text-muted-foreground">
@@ -118,9 +132,13 @@ export default function SaludPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-bold capitalize text-[#0A3B2A]">{vocab('salud_financiera')}</h1>
+      <PageHeader
+        eyebrow="Crecer"
+        title={vocab('salud_financiera')}
+        description="Tu avance semanal hacia un negocio más ordenado y listo para crédito."
+      />
 
-      <Card className="border-0 bg-[#0A3B2A] text-white">
+      <Card className="border-0 bg-brand-dark text-white">
         <CardContent className="flex flex-col items-center gap-2 p-6">
           <SaludCircular
             indice={actual.indice}
@@ -154,7 +172,7 @@ export default function SaludPage() {
 
       <Card>
         <CardContent className="space-y-3 p-4">
-          <p className="font-semibold text-[#0A3B2A]">Cómo se compone tu salud financiera</p>
+          <p className="font-semibold text-brand-dark">Cómo se compone tu salud financiera</p>
           {PILARES.map((p) => {
             const valor = Number(componentes[p.key] ?? 0)
             return (
@@ -175,7 +193,7 @@ export default function SaludPage() {
       {historico.length > 1 && (
         <Card>
           <CardContent className="p-4">
-            <p className="mb-3 font-semibold text-[#0A3B2A]">Evolución de tu salud financiera</p>
+            <p className="mb-3 font-semibold text-brand-dark">Evolución de tu salud financiera</p>
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={historico.map((h, i) => ({ ...h, etiqueta: `S${i + 1}` }))}>
@@ -202,7 +220,7 @@ export default function SaludPage() {
               ? 'Genera un reporte con tu historial para compartir con una microfinanciera.'
               : 'Sigue mejorando tu salud financiera para generar tu reporte.'}
           </p>
-          <Button className="w-full bg-[#0A3B2A] text-white hover:bg-[#0A3B2A]/90" disabled={nivel < 3}>
+          <Button variant="dark" className="w-full" disabled={nivel < 3}>
             <FileText className="h-4 w-4" /> Generar mi reporte
           </Button>
         </CardContent>

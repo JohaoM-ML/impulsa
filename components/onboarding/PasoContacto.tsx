@@ -40,7 +40,7 @@ export function PasoContacto({ onContinuar }: PasoContactoProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-primary ring-1 ring-primary/15">
           <MessageCircle className="h-6 w-6" />
         </div>
         <CardTitle className="text-base">Tu WhatsApp</CardTitle>
@@ -54,7 +54,7 @@ export function PasoContacto({ onContinuar }: PasoContactoProps) {
           <div className="space-y-2">
             <Label htmlFor="telefono">Celular</Label>
             <div className="flex gap-2">
-              <span className="flex min-h-[48px] items-center rounded-md border bg-muted px-3 text-sm">
+              <span className="flex min-h-[48px] items-center rounded-xl border bg-brand-tint px-3 text-sm font-semibold text-brand-dark">
                 +51
               </span>
               <Input
@@ -72,9 +72,13 @@ export function PasoContacto({ onContinuar }: PasoContactoProps) {
             <p className="text-xs text-muted-foreground">9 dígitos, sin espacios.</p>
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
-          <Button type="submit" className="w-full min-h-[48px]" disabled={loading || telefono.length < 9}>
+          <Button type="submit" size="xl" className="w-full" disabled={loading || telefono.length < 9}>
             {loading ? 'Guardando...' : 'Continuar'}
           </Button>
         </form>

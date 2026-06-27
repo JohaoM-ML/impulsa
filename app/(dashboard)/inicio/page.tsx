@@ -10,6 +10,7 @@ import { SaludCircular } from '@/components/salud/SaludCircular'
 import { ExplicacionColapsable } from '@/components/shared/ExplicacionColapsable'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { useNivel } from '@/hooks/useNivel'
 import { useNegocio } from '@/hooks/useNegocio'
 import { formatSoles } from '@/lib/utils'
@@ -78,19 +79,15 @@ export default function InicioPage() {
   return (
     <div className="space-y-4 p-4">
       {/* Saludo */}
-      <div className="flex items-center gap-3">
-        <span className="text-4xl">🦙</span>
-        <div>
-          <h1 className="text-xl font-bold text-[#0A3B2A]">
-            ¡Hola, {(negocio?.nombre ?? 'amigo').split(' ')[0]}!
-          </h1>
-          <p className="text-xs text-muted-foreground">{fechaHoy()}</p>
-          <p className="text-sm font-medium text-primary">Chaski te acompaña hoy ✨</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={fechaHoy()}
+        title={`¡Hola, ${(negocio?.nombre ?? 'amigo').split(' ')[0]}!`}
+        description="Chaski te acompaña hoy: registra, entiende y mejora tu negocio."
+        action={<span className="text-3xl" aria-hidden="true">🦙</span>}
+      />
 
       {/* Resumen de hoy */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -109,7 +106,7 @@ export default function InicioPage() {
             </div>
             <div>
               <p className="text-[11px] uppercase text-muted-foreground">Más vendido hoy</p>
-              <p className="text-xs font-bold leading-tight text-[#0A3B2A]">
+              <p className="text-xs font-bold leading-tight text-brand-dark">
                 {resumen?.productoTopHoy
                   ? `${resumen.productoTopHoy.nombre} (${resumen.productoTopHoy.cantidad})`
                   : '—'}
@@ -121,7 +118,7 @@ export default function InicioPage() {
 
       {/* Salud financiera */}
       {nivel >= 2 && indice !== null && (
-        <Card className="border-0 bg-[#0A3B2A] text-white">
+        <Card className="border-0 bg-brand-dark text-white">
           <CardContent className="flex items-center gap-4 p-4">
             <SaludCircular
               indice={indice}
@@ -215,7 +212,7 @@ export default function InicioPage() {
       </div>
 
       {/* Tip del día */}
-      <Card className="border-primary/30 bg-primary/5">
+      <Card className="border-primary/20 bg-brand-tint/70">
         <CardContent className="flex items-start gap-3 p-4">
           <span className="text-2xl">🦙</span>
           <p className="text-sm">
@@ -242,9 +239,9 @@ export default function InicioPage() {
 function AccesoRapido({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   return (
     <Link href={href}>
-      <Card className="h-full">
+      <Card className="h-full transition-transform active:scale-[0.98]">
         <CardContent className="flex flex-col items-center gap-2 p-3 text-center">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-tint text-primary ring-1 ring-primary/15">
             {icon}
           </span>
           <span className="text-xs font-medium leading-tight">{label}</span>

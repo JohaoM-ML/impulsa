@@ -38,11 +38,11 @@ export function SugerirAgregarInventario({
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
           <PackagePlus className="h-5 w-5" />
         </span>
         <div>
-          <h2 className="text-lg font-bold text-[#0A3B2A]">Productos nuevos</h2>
+          <h2 className="text-lg font-bold text-brand-dark">Productos nuevos</h2>
           <p className="text-sm text-muted-foreground">
             Estos productos no están en tu inventario. ¿Quieres agregarlos para que las
             próximas ventas descuenten stock?
@@ -57,7 +57,7 @@ export function SugerirAgregarInventario({
           return (
             <Card
               key={clave}
-              className={marcado ? 'border-primary/40' : 'opacity-70'}
+              className={marcado ? 'border-primary/40 bg-brand-tint/35' : 'opacity-70'}
             >
               <CardContent className="flex items-center gap-3 p-3">
                 <input
@@ -81,7 +81,8 @@ export function SugerirAgregarInventario({
       </div>
 
       <Button
-        className="min-h-[48px] w-full"
+        size="xl"
+        className="w-full"
         disabled={loading || elegidos.length === 0}
         onClick={() => onAgregarYContinuar(elegidos)}
       >
@@ -91,7 +92,7 @@ export function SugerirAgregarInventario({
       </Button>
       <Button
         variant="outline"
-        className="min-h-[48px] w-full"
+        className="w-full"
         disabled={loading}
         onClick={onSoloContinuar}
       >

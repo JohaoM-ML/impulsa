@@ -125,6 +125,97 @@ Si no puedes leer el precio de un producto, omite el campo precio_unit. Si la im
   return { texto, productos: extraerArrayJSON(texto) }
 }
 
+/**
+ * Resultado de analizar una foto en el flujo de VENTA: o es un comprobante de
+ * pago (Yape/Plin/tarjeta) o es una boleta/lista de productos.
+ */
+export type AnalisisFotoVenta =
+  | { tipo: 'comprobante'; comprobante: ComprobantePagoDetectado }
+  | { tipo: 'productos'; texto: string; productos: OCRProductoDetectado[] }
+
+/**
+ * Una sola llamada multimodal que clasifica la foto de una venta: detecta si es
+ * un comprobante de pago digital (reconociendo el logo de Yape/Plin) o una
+ * boleta/lista de productos, y extrae los datos correspondientes.
+ */
+export async function analizarFotoVenta(imageDataUrl: string): Promise<AnalisisFotoVenta> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return { tipo: 'comprobante', comprobante: { monto: 25, medio_pago: 'yape', operacion: null, fecha: null, texto: '' } }
+  }
+
+  const mediaType = detectarMediaType(imageDataUrl)
+  const base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
+  const client = getAnthropicClient()
+  const message = await client.messages.create({
+    model: MODELO_CLAUDE,
+    max_tokens: 1024,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64 },
+          },
+          {
+            type: 'text',
+            text: `Eres el asistente de una bodega peruana. Analiza esta imagen y clasifícala en uno de dos tipos.
+
+1) COMPROBANTE de pago digital (captura de una app de pago):
+- Yape: fondo MORADO, logo "Yape", textos como "¡Yapeaste!", muestra un monto "S/ ...", nombre del destinatario y número de operación.
+- Plin: colores turquesa/celeste, logo "plin", textos como "Constancia", "¡Pago exitoso!", muestra "S/ ...".
+- También puede ser tarjeta o transferencia bancaria.
+
+2) PRODUCTOS: una boleta, factura, guía de proveedor o lista escrita de productos.
+
+Reconoce el logo aunque el texto esté borroso. El MONTO es el dato más importante del comprobante.
+
+Devuelve SOLO un objeto JSON, sin texto adicional, con UNA de estas dos formas:
+
+Si es comprobante:
+{"tipo":"comprobante","monto":25,"medio_pago":"yape","operacion":"26101992","fecha":"2025-12-17 23:31"}
+
+Si son productos:
+{"tipo":"productos","productos":[{"nombre":"Inca Kola 500ml","cantidad":3,"precio_unit":1.8}]}
+
+Reglas:
+- medio_pago debe ser uno de: "yape", "plin", "tarjeta", "efectivo" o null. Infiérelo por el logo/colores.
+- monto: número en soles sin "S/". Si no se ve, usa null.
+- operacion y fecha: el código de operación y la fecha si aparecen; si no, null.
+- En productos, si no puedes leer el precio de un producto, omite precio_unit.
+- No inventes datos que no estén en la imagen.`,
+          },
+        ],
+      },
+    ],
+  })
+
+  const block = message.content[0]
+  const texto = block.type === 'text' ? block.text : ''
+  const obj = extraerObjetoJSON(texto)
+
+  if (obj?.tipo === 'productos' || Array.isArray(obj?.productos)) {
+    return { tipo: 'productos', texto, productos: extraerArrayJSON(texto) }
+  }
+
+  const medio = obj?.medio_pago
+  const medio_pago =
+    medio === 'yape' || medio === 'plin' || medio === 'tarjeta' || medio === 'efectivo'
+      ? medio
+      : null
+
+  return {
+    tipo: 'comprobante',
+    comprobante: {
+      monto: obj?.monto === null || obj?.monto === undefined ? null : Number(obj.monto),
+      medio_pago,
+      operacion: obj?.operacion ? String(obj.operacion) : null,
+      fecha: obj?.fecha ? String(obj.fecha) : null,
+      texto: obj?.texto ? String(obj.texto) : texto,
+    },
+  }
+}
+
 export async function leerComprobantePago(imageDataUrl: string): Promise<ComprobantePagoDetectado> {
   if (!process.env.ANTHROPIC_API_KEY) {
     return {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, Mic, Pencil, Plus, Trash2, WalletCards } from 'lucide-react'
+import { Camera, Mic, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -41,6 +41,7 @@ interface ComprobanteVenta extends ComprobantePagoDetectado {
 export default function RegistrarPage() {
   const router = useRouter()
   const [tipo, setTipo] = useState<Tipo>('venta')
+  const [vista, setVista] = useState('foto')
   const [inventario, setInventario] = useState<Producto[]>([])
   const [mediosAceptados, setMediosAceptados] = useState<MedioPago[]>(['efectivo'])
   const [medioPago, setMedioPago] = useState<MedioPago>('efectivo')
@@ -87,44 +88,51 @@ export default function RegistrarPage() {
   }, [cargarInventario])
 
   // ── Procesar foto ──
+  // Venta: foto inteligente que detecta si es comprobante (Yape/Plin) o boleta de
+  // productos. Compra: extracción de productos de la guía del proveedor.
   async function procesarFoto(base64: string) {
     setProcesando(true)
     setComprobanteVenta(null)
     try {
-      const res = await fetch('/api/ia/extraer-foto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imagen: base64, tipo }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'No se pudo leer la foto')
-      if (!data.productos?.length) {
-        toast({ title: 'No detecté productos', description: 'Prueba con otra foto o usa Manual', variant: 'destructive' })
+      if (tipo === 'compra') {
+        const res = await fetch('/api/ia/extraer-foto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imagen: base64, tipo }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'No se pudo leer la foto')
+        if (!data.productos?.length) {
+          toast({ title: 'No detecté productos', description: 'Prueba con otra foto o usa Manual', variant: 'destructive' })
+          return
+        }
+        setTextoRaw(data.texto ?? '')
+        setDetectados(data.productos)
         return
       }
-      setTextoRaw(data.texto ?? '')
-      setDetectados(data.productos)
-    } catch (e) {
-      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })
-    } finally {
-      setProcesando(false)
-    }
-  }
 
-  async function procesarComprobante(base64: string) {
-    setProcesando(true)
-    setDetectados(null)
-    try {
-      const res = await fetch('/api/ia/leer-comprobante', {
+      const res = await fetch('/api/ia/analizar-foto-venta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imagen: base64 }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'No se pudo leer el comprobante')
-      if (!data.monto || !data.medio_pago || !data.comprobante_url) {
+      if (!res.ok) throw new Error(data.error || 'No se pudo leer la foto')
+
+      if (data.tipo === 'productos') {
+        if (!data.productos?.length) {
+          toast({ title: 'No detecté productos', description: 'Prueba con otra foto o usa Manual', variant: 'destructive' })
+          return
+        }
+        setTextoRaw(data.texto ?? '')
+        setDetectados(data.productos)
+        return
+      }
+
+      // Comprobante: el monto es lo esencial; el medio puede confirmarse luego.
+      if (!data.monto) {
         toast({
-          title: 'No pude leer el comprobante',
+          title: 'No pude leer el monto',
           description: 'Prueba otra captura o registra la venta manual.',
           variant: 'destructive',
         })
@@ -132,9 +140,9 @@ export default function RegistrarPage() {
       }
       const comprobante = data as ComprobanteVenta
       setComprobanteVenta(comprobante)
-      setMedioPago(comprobante.medio_pago ?? 'efectivo')
+      if (comprobante.medio_pago) setMedioPago(comprobante.medio_pago)
       toast({
-        title: `${etiquetaMedioPago(comprobante.medio_pago)} detectado`,
+        title: comprobante.medio_pago ? `${etiquetaMedioPago(comprobante.medio_pago)} detectado` : 'Comprobante leído',
         description: formatSoles(comprobante.monto ?? 0),
       })
     } catch (e) {
@@ -144,35 +152,66 @@ export default function RegistrarPage() {
     }
   }
 
+  // Permite confirmar/corregir el medio cuando la foto no lo detectó con certeza.
+  function actualizarMedioComprobante(m: MedioPago) {
+    setComprobanteVenta((c) => (c ? { ...c, medio_pago: m } : c))
+    setMedioPago(m)
+  }
+
   // ── Procesar voz ──
   async function procesarVoz(blob: Blob) {
     setProcesando(true)
     setComprobanteVenta(null)
     try {
-      const fd = new FormData()
-      fd.append('audio', blob, 'audio.webm')
-      const tr = await fetch('/api/ia/transcribir', { method: 'POST', body: fd })
-      const trData = await tr.json()
-      if (!tr.ok) throw new Error(trData.error || 'No se pudo transcribir')
-
-      const es = await fetch('/api/ia/estructurar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto: trData.texto, tipo }),
-      })
-      const esData = await es.json()
-      if (!es.ok) throw new Error(esData.error || 'No se pudo interpretar')
-      if (!esData.productos?.length) {
-        toast({ title: 'No entendí los productos', description: trData.texto || 'Intenta de nuevo', variant: 'destructive' })
-        return
-      }
-      setTextoRaw(trData.texto ?? '')
+      const esData = await transcribirYEstructurar(blob)
+      if (!esData) return
       setDetectados(esData.productos)
     } catch (e) {
       toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })
     } finally {
       setProcesando(false)
     }
+  }
+
+  // Voz para indicar el producto de un comprobante ya detectado: NO limpia el
+  // comprobante, para que el total/medio/imagen detectados se usen al guardar.
+  async function procesarVozComprobante(blob: Blob) {
+    setProcesando(true)
+    try {
+      const esData = await transcribirYEstructurar(blob)
+      if (!esData) return
+      setDetectados(esData.productos)
+    } catch (e) {
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' })
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  // Transcribe el audio y lo estructura en productos. Devuelve null si falla o
+  // no hay productos (ya muestra el toast correspondiente).
+  async function transcribirYEstructurar(
+    blob: Blob
+  ): Promise<{ productos: OCRProductoDetectado[] } | null> {
+    const fd = new FormData()
+    fd.append('audio', blob, 'audio.webm')
+    const tr = await fetch('/api/ia/transcribir', { method: 'POST', body: fd })
+    const trData = await tr.json()
+    if (!tr.ok) throw new Error(trData.error || 'No se pudo transcribir')
+
+    const es = await fetch('/api/ia/estructurar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto: trData.texto, tipo }),
+    })
+    const esData = await es.json()
+    if (!es.ok) throw new Error(esData.error || 'No se pudo interpretar')
+    if (!esData.productos?.length) {
+      toast({ title: 'No entendí los productos', description: trData.texto || 'Intenta de nuevo', variant: 'destructive' })
+      return null
+    }
+    setTextoRaw(trData.texto ?? '')
+    return { productos: esData.productos }
   }
 
   // ── Guardar (venta o compra) ──
@@ -410,7 +449,7 @@ export default function RegistrarPage() {
         </Card>
       )}
 
-      {tipo === 'venta' && (
+      {tipo === 'venta' && (vista === 'manual' || vista === 'voz') && (
         <Card>
           <CardContent className="space-y-2 p-4">
             <Label>Medio de pago</Label>
@@ -430,16 +469,11 @@ export default function RegistrarPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="foto">
+      <Tabs value={vista} onValueChange={setVista}>
         <TabsList>
           <TabsTrigger value="foto">
             <Camera className="h-4 w-4" /> Foto
           </TabsTrigger>
-          {tipo === 'venta' && (
-            <TabsTrigger value="comprobante">
-              <WalletCards className="h-4 w-4" /> Yape/Plin
-            </TabsTrigger>
-          )}
           <TabsTrigger value="voz">
             <Mic className="h-4 w-4" /> Voz
           </TabsTrigger>
@@ -450,88 +484,121 @@ export default function RegistrarPage() {
 
         {/* FOTO */}
         <TabsContent value="foto" className="space-y-3">
-          <ChaskiHint texto="Saca foto a la boleta o lista y yo extraigo los productos. ¡Listo!" />
-          <CamaraGuia onCaptura={procesarFoto} />
-        </TabsContent>
-
-        {tipo === 'venta' && (
-          <TabsContent value="comprobante" className="space-y-3">
-            <ChaskiHint texto="Sube la captura de Yape o Plin. Yo leo el monto; tú solo completas producto y cantidad." />
-            {!comprobanteVenta ? (
-              <CamaraGuia onCaptura={procesarComprobante} />
-            ) : (
-              <Card>
-                <CardContent className="space-y-3 p-4">
-                  <div className="rounded-2xl bg-brand-tint p-3">
-                    <p className="text-sm font-semibold text-brand-dark">
-                      {etiquetaMedioPago(comprobanteVenta.medio_pago)} detectado
+          {tipo === 'venta' && comprobanteVenta ? (
+            <Card>
+              <CardContent className="space-y-3 p-4">
+                <div className="rounded-2xl bg-brand-tint p-3">
+                  <p className="text-sm font-semibold text-brand-dark">
+                    {comprobanteVenta.medio_pago
+                      ? `${etiquetaMedioPago(comprobanteVenta.medio_pago)} detectado`
+                      : 'Comprobante leído'}
+                  </p>
+                  <p className="text-2xl font-bold text-primary">
+                    {formatSoles(comprobanteVenta.monto ?? 0)}
+                  </p>
+                  {comprobanteVenta.operacion && (
+                    <p className="text-xs text-muted-foreground">
+                      Operación: {comprobanteVenta.operacion}
                     </p>
-                    <p className="text-2xl font-bold text-primary">
-                      {formatSoles(comprobanteVenta.monto ?? 0)}
-                    </p>
-                    {comprobanteVenta.operacion && (
-                      <p className="text-xs text-muted-foreground">
-                        Operación: {comprobanteVenta.operacion}
-                      </p>
-                    )}
-                  </div>
+                  )}
+                </div>
 
+                {!comprobanteVenta.medio_pago && (
                   <div className="space-y-2">
-                    <Label>Producto vendido</Label>
-                    <Select value={comprobanteProductoId} onValueChange={setComprobanteProductoId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elige un producto" />
+                    <Label>¿Con qué te pagaron?</Label>
+                    <Select
+                      value={medioPago}
+                      onValueChange={(v) => actualizarMedioComprobante(v as MedioPago)}
+                    >
+                      <SelectTrigger className="min-h-[48px]">
+                        <SelectValue placeholder="Elige el medio" />
                       </SelectTrigger>
                       <SelectContent>
-                        {inventario.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.nombre}
+                        {MEDIOS_PAGO.filter((m) => mediosAceptados.includes(m.value)).map((m) => (
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
                           </SelectItem>
                         ))}
-                        <SelectItem value="otro">Otro (escribir)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                )}
 
-                  {comprobanteProductoId === 'otro' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="comprobanteNombre">Nombre del producto</Label>
-                      <Input
-                        id="comprobanteNombre"
-                        value={comprobanteNombre}
-                        onChange={(e) => setComprobanteNombre(e.target.value)}
-                        placeholder="Ej. Gaseosa 500ml"
-                      />
-                    </div>
-                  )}
+                <div className="rounded-2xl border border-primary/15 bg-brand-tint/50 p-3">
+                  <p className="mb-2 text-sm font-medium text-brand-dark">
+                    ¿A qué corresponde? Dímelo por voz:
+                  </p>
+                  <GrabadoraVoz onAudio={procesarVozComprobante} disabled={procesando} />
+                </div>
 
+                <p className="text-center text-xs text-muted-foreground">o complétalo a mano</p>
+
+                <div className="space-y-2">
+                  <Label>Producto vendido</Label>
+                  <Select value={comprobanteProductoId} onValueChange={setComprobanteProductoId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Elige un producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {inventario.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.nombre}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="otro">Otro (escribir)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {comprobanteProductoId === 'otro' && (
                   <div className="space-y-2">
-                    <Label htmlFor="comprobanteCantidad">Cantidad</Label>
+                    <Label htmlFor="comprobanteNombre">Nombre del producto</Label>
                     <Input
-                      id="comprobanteCantidad"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={comprobanteCantidad}
-                      onChange={(e) => setComprobanteCantidad(e.target.value)}
+                      id="comprobanteNombre"
+                      value={comprobanteNombre}
+                      onChange={(e) => setComprobanteNombre(e.target.value)}
+                      placeholder="Ej. Gaseosa 500ml"
                     />
                   </div>
+                )}
 
-                  <Button className="w-full min-h-[48px]" onClick={confirmarComprobanteProducto}>
-                    Revisar venta
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full min-h-[48px]"
-                    onClick={() => setComprobanteVenta(null)}
-                  >
-                    Cambiar comprobante
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        )}
+                <div className="space-y-2">
+                  <Label htmlFor="comprobanteCantidad">Cantidad</Label>
+                  <Input
+                    id="comprobanteCantidad"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={comprobanteCantidad}
+                    onChange={(e) => setComprobanteCantidad(e.target.value)}
+                  />
+                </div>
+
+                <Button className="w-full min-h-[48px]" onClick={confirmarComprobanteProducto}>
+                  Revisar venta
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full min-h-[48px]"
+                  onClick={() => setComprobanteVenta(null)}
+                >
+                  Cambiar comprobante
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <ChaskiHint
+                texto={
+                  tipo === 'venta'
+                    ? 'Saca foto a tu Yape/Plin o a la boleta. Reconozco solo qué es y leo el monto.'
+                    : 'Saca foto a la guía o lista y yo extraigo los productos. ¡Listo!'
+                }
+              />
+              <CamaraGuia onCaptura={procesarFoto} />
+            </>
+          )}
+        </TabsContent>
 
         {/* VOZ */}
         <TabsContent value="voz" className="space-y-3">

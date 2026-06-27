@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { leerComprobantePago } from '@/lib/claude'
+import { analizarFotoVenta } from '@/lib/claude'
 import { getNegocioFromSession } from '@/lib/supabase/server'
 
 function extensionDesdeDataUrl(dataUrl: string): string {
@@ -34,25 +34,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const comprobante = await leerComprobantePago(imagen)
-    const buffer = Buffer.from(base64, 'base64')
-    const ext = extensionDesdeDataUrl(imagen)
-    const path = `${user.id}/${negocio.id}/${Date.now()}.${ext}`
-    const { error: uploadError } = await supabase.storage
-      .from('comprobantes')
-      .upload(path, buffer, {
-        contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-        upsert: false,
-      })
+    const analisis = await analizarFotoVenta(imagen)
 
-    if (uploadError) throw uploadError
+    if (analisis.tipo === 'productos') {
+      return NextResponse.json({ tipo: 'productos', texto: analisis.texto, productos: analisis.productos })
+    }
+
+    // Comprobante: guardamos la imagen como respaldo, pero la subida es best-effort:
+    // si el bucket/policy no está listo, igual devolvemos el comprobante detectado.
+    let comprobante_url: string | null = null
+    try {
+      const buffer = Buffer.from(base64, 'base64')
+      const ext = extensionDesdeDataUrl(imagen)
+      const path = `${user.id}/${negocio.id}/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('comprobantes')
+        .upload(path, buffer, {
+          contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+          upsert: false,
+        })
+      if (uploadError) throw uploadError
+      comprobante_url = path
+    } catch (uploadErr) {
+      console.error('[POST /api/ia/analizar-foto-venta] subida comprobante', uploadErr)
+    }
 
     return NextResponse.json({
-      ...comprobante,
-      comprobante_url: path,
+      tipo: 'comprobante',
+      ...analisis.comprobante,
+      comprobante_url,
     })
   } catch (err) {
-    console.error('[POST /api/ia/leer-comprobante]', err)
+    console.error('[POST /api/ia/analizar-foto-venta]', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

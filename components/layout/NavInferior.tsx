@@ -26,6 +26,7 @@ export function NavInferior({ nivel = 1 }: { nivel?: number }) {
             <Link
               key={href}
               href={href}
+              data-tour={href.replace('/', '')}
               className={cn(
                 'flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px]',
                 active ? 'text-primary font-medium' : 'text-muted-foreground'

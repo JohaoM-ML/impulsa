@@ -1,8 +1,10 @@
 'use client'
 
+import { Suspense } from 'react'
 import { CelebracionNivel } from '@/components/shared/CelebracionNivel'
 import { NavInferior } from '@/components/layout/NavInferior'
 import { TopBar } from '@/components/layout/TopBar'
+import { TutorialGuiado } from '@/components/tutorial/TutorialGuiado'
 import { useNivel } from '@/hooks/useNivel'
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -13,6 +15,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {children}
       <NavInferior nivel={nivel} />
       <CelebracionNivel />
+      <Suspense fallback={null}>
+        <TutorialGuiado />
+      </Suspense>
     </div>
   )
 }

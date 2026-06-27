@@ -45,7 +45,8 @@ export function PasoContacto({ onContinuar }: PasoContactoProps) {
         </div>
         <CardTitle className="text-base">Tu WhatsApp</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Con este número podrás registrar ventas escribiéndonos por WhatsApp.
+          Con este número tendrás a tu asesor por WhatsApp: registra ventas y gastos,
+          consulta cómo va tu negocio y recibe consejos, todo por chat.
         </p>
       </CardHeader>
       <CardContent>

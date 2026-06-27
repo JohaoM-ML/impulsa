@@ -14,7 +14,7 @@ import { FileText, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SaludCircular } from '@/components/salud/SaludCircular'
-import { TextoFormateado } from '@/components/shared/TextoFormateado'
+import { ExplicacionColapsable } from '@/components/shared/ExplicacionColapsable'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
 import { useNivel } from '@/hooks/useNivel'
@@ -99,7 +99,7 @@ export default function SaludPage() {
   if (!actual) {
     return (
       <div className="space-y-4 p-4">
-        <h1 className="text-2xl font-bold text-[#0f3d56]">{vocab('salud_financiera')}</h1>
+        <h1 className="text-2xl font-bold capitalize text-[#0f3d56]">{vocab('salud_financiera')}</h1>
         <Card>
           <CardContent className="p-6 text-center">
             <p className="mb-4 text-muted-foreground">
@@ -118,7 +118,7 @@ export default function SaludPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-bold text-[#0f3d56]">Tu {vocab('salud_financiera')}</h1>
+      <h1 className="text-2xl font-bold capitalize text-[#0f3d56]">{vocab('salud_financiera')}</h1>
 
       <Card className="border-0 bg-[#0f3d56] text-white">
         <CardContent className="flex flex-col items-center gap-2 p-6">
@@ -143,7 +143,11 @@ export default function SaludPage() {
         <Card className="border-amber-300/60 bg-amber-50">
           <CardContent className="flex items-start gap-3 p-4">
             <span className="text-2xl">🦙</span>
-            <TextoFormateado texto={actual.explicacion} className="text-sm text-amber-900" />
+            <ExplicacionColapsable
+              texto={actual.explicacion}
+              className="text-sm text-amber-900"
+              classNameBoton="text-amber-800"
+            />
           </CardContent>
         </Card>
       )}

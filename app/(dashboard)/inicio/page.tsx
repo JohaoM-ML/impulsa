@@ -1,14 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useState, Suspense } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BienvenidaTour } from '@/components/onboarding/BienvenidaTour'
 import { AlertTriangle, ClipboardList, CreditCard, ShoppingCart, BarChart3, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SaludCircular } from '@/components/salud/SaludCircular'
-import { TextoFormateado } from '@/components/shared/TextoFormateado'
+import { ExplicacionColapsable } from '@/components/shared/ExplicacionColapsable'
 import { EstadoCargando } from '@/components/estados/EstadoCargando'
 import { EstadoError } from '@/components/estados/EstadoError'
 import { useNivel } from '@/hooks/useNivel'
@@ -78,10 +77,6 @@ export default function InicioPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <Suspense fallback={null}>
-        <BienvenidaTour />
-      </Suspense>
-
       {/* Saludo */}
       <div className="flex items-center gap-3">
         <span className="text-4xl">🦙</span>
@@ -137,7 +132,7 @@ export default function InicioPage() {
             />
             <div className="flex-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-white/70">
-                Tu {vocab('salud_financiera')}
+                Tu salud financiera
               </p>
               {(resumen?.indiceDelta ?? resumen?.scoreDelta) ? (
                 <p className="flex items-center gap-1 text-sm font-medium text-emerald-300">
@@ -149,9 +144,10 @@ export default function InicioPage() {
                 </p>
               ) : null}
               {(resumen?.indiceExplicacion ?? resumen?.scoreExplicacion) ? (
-                <TextoFormateado
+                <ExplicacionColapsable
                   texto={resumen.indiceExplicacion ?? resumen.scoreExplicacion ?? ''}
                   className="mt-1 text-xs text-white/80"
+                  classNameBoton="text-white"
                 />
               ) : (
                 <p className="mt-1 text-xs text-white/80">

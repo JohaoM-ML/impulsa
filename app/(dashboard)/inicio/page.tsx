@@ -81,7 +81,7 @@ export default function InicioPage() {
       <div className="flex items-center gap-3">
         <span className="text-4xl">🦙</span>
         <div>
-          <h1 className="text-xl font-bold text-[#0f3d56]">
+          <h1 className="text-xl font-bold text-[#0A3B2A]">
             ¡Hola, {(negocio?.nombre ?? 'amigo').split(' ')[0]}!
           </h1>
           <p className="text-xs text-muted-foreground">{fechaHoy()}</p>
@@ -109,7 +109,7 @@ export default function InicioPage() {
             </div>
             <div>
               <p className="text-[11px] uppercase text-muted-foreground">Más vendido hoy</p>
-              <p className="text-xs font-bold leading-tight text-[#0f3d56]">
+              <p className="text-xs font-bold leading-tight text-[#0A3B2A]">
                 {resumen?.productoTopHoy
                   ? `${resumen.productoTopHoy.nombre} (${resumen.productoTopHoy.cantidad})`
                   : '—'}
@@ -121,7 +121,7 @@ export default function InicioPage() {
 
       {/* Salud financiera */}
       {nivel >= 2 && indice !== null && (
-        <Card className="border-0 bg-[#0f3d56] text-white">
+        <Card className="border-0 bg-[#0A3B2A] text-white">
           <CardContent className="flex items-center gap-4 p-4">
             <SaludCircular
               indice={indice}

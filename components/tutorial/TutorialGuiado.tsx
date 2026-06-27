@@ -145,7 +145,7 @@ export function TutorialGuiado() {
           }}
         />
       ) : (
-        <div className="absolute inset-0 bg-[#0f3d56]/75" />
+        <div className="absolute inset-0 bg-[#0A3B2A]/75" />
       )}
 
       {/* Burbuja */}
@@ -159,7 +159,7 @@ export function TutorialGuiado() {
             : { top: '50%', transform: 'translate(-50%, -50%)' }
         }
       >
-        <p className="text-base font-bold text-[#0f3d56]">{pasoActual.titulo}</p>
+        <p className="text-base font-bold text-[#0A3B2A]">{pasoActual.titulo}</p>
         <p className="mt-1 text-sm text-muted-foreground">{pasoActual.texto}</p>
 
         <div className="mt-3 flex items-center justify-between">

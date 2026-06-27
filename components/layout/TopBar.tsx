@@ -1,7 +1,8 @@
 'use client'
 
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { Info, LogOut } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { NOMBRES_NIVEL, type Nivel } from '@/lib/vocabulario'
 import { createBrowserClient } from '@/lib/supabase/client'
 
@@ -33,16 +34,23 @@ export function TopBar({ nivel = 1 }: { nivel?: number }) {
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur">
       <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0f3d56] text-white">
-          <Info className="h-4 w-4" />
+        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-brand-dark">
+          <Image
+            src="/logo-impulsa.png"
+            alt="Impulsa"
+            width={32}
+            height={32}
+            className="h-8 w-8 object-cover"
+            priority
+          />
         </span>
         <div className="leading-tight">
-          <p className="text-sm font-bold text-[#0f3d56]">Impulsa</p>
+          <p className="text-sm font-bold text-brand-dark">Impulsa</p>
           {subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="rounded-full bg-[#6d28d9] px-3 py-1 text-xs font-semibold text-white">
+        <span className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-primary-foreground">
           Nivel: {NOMBRES_NIVEL[(nivel as Nivel) ?? 1]}
         </span>
         <button

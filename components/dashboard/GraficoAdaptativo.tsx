@@ -46,7 +46,7 @@ export function GraficoAdaptativo({ nivel, data, titulo = 'Ventas de la semana' 
               <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} width={40} />
               <Tooltip formatter={(v: number) => [`S/ ${v.toFixed(2)}`, 'Total']} />
-              <Line type="monotone" dataKey="total" stroke="hsl(142 76% 36%)" strokeWidth={2} dot />
+              <Line type="monotone" dataKey="total" stroke="hsl(153 69% 39%)" strokeWidth={2} dot />
             </LineChart>
           ) : (
             <BarChart data={chartData}>
@@ -54,7 +54,7 @@ export function GraficoAdaptativo({ nivel, data, titulo = 'Ventas de la semana' 
               <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} width={40} />
               <Tooltip formatter={(v: number) => [`S/ ${v.toFixed(2)}`, 'Total']} />
-              <Bar dataKey="total" fill="hsl(142 76% 36%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="total" fill="hsl(153 69% 39%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           )}
         </ResponsiveContainer>

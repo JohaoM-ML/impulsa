@@ -10,6 +10,14 @@ export const metadata: Metadata = {
   title: 'Impulsa',
   description: 'PWA para micro y pequeñas empresas peruanas',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/icons/icon.svg', type: 'image/svg+xml' },
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -21,7 +29,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#16a34a',
+  themeColor: '#0A3B2A',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

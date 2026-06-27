@@ -73,7 +73,7 @@ export function InsigniaSubida({
 
           <div className="text-center">
             <p className="text-4xl">{info.emoji}</p>
-            <p id="insignia-subida-titulo" className="mt-2 text-2xl font-bold text-[#0f3d56]">
+            <p id="insignia-subida-titulo" className="mt-2 text-2xl font-bold text-[#0A3B2A]">
               {desde ? (
                 <>
                   {desde}

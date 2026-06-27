@@ -4,23 +4,32 @@
 
 @layer base {
   :root {
+    /* Impulsa brand palette (derived from logo)
+       - brand-dark : #0A3B2A  forest green (logo background / dark surfaces)
+       - brand      : #1FA86A  emerald (primary CTAs, accessible with white text)
+       - brand-light: #2FBE7E  bright emerald (the arrow / decorative accents) */
+    --brand-dark: 160 71% 14%;
+    --brand: 153 69% 39%;
+    --brand-light: 153 60% 47%;
+    --brand-tint: 150 52% 95%;
+
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 162 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 142 76% 36%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142 76% 36%;
+    --card-foreground: 162 47% 11%;
+    --primary: 153 69% 36%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 150 38% 96%;
+    --secondary-foreground: 160 50% 16%;
+    --muted: 150 24% 96%;
+    --muted-foreground: 155 12% 42%;
+    --accent: 150 52% 94%;
+    --accent-foreground: 160 60% 18%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 152 22% 90%;
+    --input: 152 22% 90%;
+    --ring: 153 69% 36%;
     --radius: 0.75rem;
   }
 }

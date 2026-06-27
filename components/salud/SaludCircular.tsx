@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 
 export function colorPorSalud(indice: number): string {
-  if (indice >= 70) return '#16a34a'
+  if (indice >= 70) return '#1FA86A'
   if (indice >= 40) return '#f59e0b'
   return '#dc2626'
 }

@@ -99,7 +99,7 @@ export default function SaludPage() {
   if (!actual) {
     return (
       <div className="space-y-4 p-4">
-        <h1 className="text-2xl font-bold capitalize text-[#0f3d56]">{vocab('salud_financiera')}</h1>
+        <h1 className="text-2xl font-bold capitalize text-[#0A3B2A]">{vocab('salud_financiera')}</h1>
         <Card>
           <CardContent className="p-6 text-center">
             <p className="mb-4 text-muted-foreground">
@@ -118,9 +118,9 @@ export default function SaludPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-bold capitalize text-[#0f3d56]">{vocab('salud_financiera')}</h1>
+      <h1 className="text-2xl font-bold capitalize text-[#0A3B2A]">{vocab('salud_financiera')}</h1>
 
-      <Card className="border-0 bg-[#0f3d56] text-white">
+      <Card className="border-0 bg-[#0A3B2A] text-white">
         <CardContent className="flex flex-col items-center gap-2 p-6">
           <SaludCircular
             indice={actual.indice}
@@ -154,7 +154,7 @@ export default function SaludPage() {
 
       <Card>
         <CardContent className="space-y-3 p-4">
-          <p className="font-semibold text-[#0f3d56]">Cómo se compone tu salud financiera</p>
+          <p className="font-semibold text-[#0A3B2A]">Cómo se compone tu salud financiera</p>
           {PILARES.map((p) => {
             const valor = Number(componentes[p.key] ?? 0)
             return (
@@ -175,7 +175,7 @@ export default function SaludPage() {
       {historico.length > 1 && (
         <Card>
           <CardContent className="p-4">
-            <p className="mb-3 font-semibold text-[#0f3d56]">Evolución de tu salud financiera</p>
+            <p className="mb-3 font-semibold text-[#0A3B2A]">Evolución de tu salud financiera</p>
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={historico.map((h, i) => ({ ...h, etiqueta: `S${i + 1}` }))}>
@@ -202,7 +202,7 @@ export default function SaludPage() {
               ? 'Genera un reporte con tu historial para compartir con una microfinanciera.'
               : 'Sigue mejorando tu salud financiera para generar tu reporte.'}
           </p>
-          <Button className="w-full bg-[#0f3d56] text-white hover:bg-[#0f3d56]/90" disabled={nivel < 3}>
+          <Button className="w-full bg-[#0A3B2A] text-white hover:bg-[#0A3B2A]/90" disabled={nivel < 3}>
             <FileText className="h-4 w-4" /> Generar mi reporte
           </Button>
         </CardContent>

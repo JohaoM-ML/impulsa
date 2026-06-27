@@ -216,7 +216,7 @@ export default function AprenderPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-xl font-bold text-[#0f3d56]">
+          <h1 className="text-xl font-bold text-[#0A3B2A]">
             Examen · {NOMBRES_NIVEL[nivel]}
           </h1>
         </div>
@@ -276,7 +276,7 @@ export default function AprenderPage() {
   if (vista === 'resultado' && resultado) {
     return (
       <div className="space-y-4 p-4">
-        <h1 className="text-xl font-bold text-[#0f3d56]">Resultado del examen</h1>
+        <h1 className="text-xl font-bold text-[#0A3B2A]">Resultado del examen</h1>
 
         <Card className={resultado.aprobado ? 'border-emerald-400' : 'border-amber-400'}>
           <CardContent className="space-y-2 p-5 text-center">
@@ -346,10 +346,10 @@ export default function AprenderPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-bold text-[#0f3d56]">Aprender</h1>
+      <h1 className="text-2xl font-bold text-[#0A3B2A]">Aprender</h1>
 
       {/* Nivel actual */}
-      <Card className="border-0 bg-[#0f3d56] text-white">
+      <Card className="border-0 bg-[#0A3B2A] text-white">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-3">
             <span className="text-3xl">🦙</span>
@@ -396,7 +396,7 @@ export default function AprenderPage() {
                     ) : estado === 'bloqueado' ? (
                       <Lock className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <span className="text-sm font-bold text-[#0f3d56]">{i + 1}</span>
+                      <span className="text-sm font-bold text-[#0A3B2A]">{i + 1}</span>
                     )}
                   </span>
                   <div className="flex-1">
@@ -437,7 +437,7 @@ export default function AprenderPage() {
       {/* Examen de nivel */}
       <Card className={examenListo ? 'border-primary/40' : 'opacity-60'}>
         <CardContent className="flex items-center gap-3 p-4">
-          <GraduationCap className="h-6 w-6 text-[#0f3d56]" />
+          <GraduationCap className="h-6 w-6 text-[#0A3B2A]" />
           <div className="flex-1">
             <p className="font-medium">Examen de nivel</p>
             <p className="text-xs text-muted-foreground">

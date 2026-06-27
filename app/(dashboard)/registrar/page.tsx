@@ -315,7 +315,7 @@ export default function RegistrarPage() {
   return (
     <div className="space-y-4 p-4">
       <div>
-        <h1 className="text-2xl font-bold text-[#0f3d56]">Registrar movimiento</h1>
+        <h1 className="text-2xl font-bold text-[#0A3B2A]">Registrar movimiento</h1>
         <p className="text-sm text-muted-foreground">Elige cómo prefieres registrarlo.</p>
       </div>
 

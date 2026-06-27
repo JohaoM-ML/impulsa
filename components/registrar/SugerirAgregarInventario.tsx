@@ -42,7 +42,7 @@ export function SugerirAgregarInventario({
           <PackagePlus className="h-5 w-5" />
         </span>
         <div>
-          <h2 className="text-lg font-bold text-[#0f3d56]">Productos nuevos</h2>
+          <h2 className="text-lg font-bold text-[#0A3B2A]">Productos nuevos</h2>
           <p className="text-sm text-muted-foreground">
             Estos productos no están en tu inventario. ¿Quieres agregarlos para que las
             próximas ventas descuenten stock?

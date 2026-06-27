@@ -54,7 +54,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 export default function MiNegocioPage() {
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-bold text-[#0f3d56]">Mi Negocio</h1>
+      <h1 className="text-2xl font-bold text-[#0A3B2A]">Mi Negocio</h1>
       <Tabs defaultValue="flujo">
         <TabsList>
           <TabsTrigger value="flujo">Flujo</TabsTrigger>
@@ -146,7 +146,7 @@ function TabFlujo() {
 
       <Card>
         <CardContent className="p-4">
-          <p className="mb-3 font-semibold text-[#0f3d56]">Ventas vs {cap(vocab('gasto'))} (semanal)</p>
+          <p className="mb-3 font-semibold text-[#0A3B2A]">Ventas vs {cap(vocab('gasto'))} (semanal)</p>
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.serie}>
@@ -155,7 +155,7 @@ function TabFlujo() {
                 <YAxis tick={{ fontSize: 11 }} width={40} />
                 <Tooltip formatter={(v: number) => formatSoles(v)} />
                 <Legend />
-                <Line type="monotone" dataKey="ventas" name="Ventas" stroke="hsl(142 76% 36%)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="ventas" name="Ventas" stroke="hsl(153 69% 39%)" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="gastos" name={cap(vocab('gasto'))} stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -248,7 +248,7 @@ function TabInventario() {
             onClick={() => setCategoria(c)}
             className={cn(
               'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium',
-              categoria === c ? 'bg-[#0f3d56] text-white' : 'bg-background text-muted-foreground'
+              categoria === c ? 'bg-[#0A3B2A] text-white' : 'bg-background text-muted-foreground'
             )}
           >
             {c} {c === 'Todos' && `· ${productos.length}`}
@@ -277,7 +277,7 @@ function TabInventario() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className={cn('text-lg font-bold', bajo ? 'text-amber-600' : 'text-[#0f3d56]')}>
+                  <p className={cn('text-lg font-bold', bajo ? 'text-amber-600' : 'text-[#0A3B2A]')}>
                     {p.stock_actual}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground">stock</p>
@@ -347,12 +347,12 @@ function TabTop() {
 
       <Card>
         <CardContent className="p-4">
-          <p className="mb-3 flex items-center gap-2 font-semibold text-[#0f3d56]">💎 Más rentables (margen)</p>
+          <p className="mb-3 flex items-center gap-2 font-semibold text-[#0A3B2A]">💎 Más rentables (margen)</p>
           <div className="space-y-2">
             {data.masRentables.map((p) => (
               <div key={p.nombre} className="flex items-center justify-between text-sm">
                 <span>{p.nombre}</span>
-                <span className="font-semibold text-[#0f3d56]">{p.margen}%</span>
+                <span className="font-semibold text-[#0A3B2A]">{p.margen}%</span>
               </div>
             ))}
             {!data.masRentables.length && (

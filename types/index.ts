@@ -201,7 +201,11 @@ export interface FlujoSemana {
 
 export type DiagnosticoFlujo = 'margen' | 'costos_fijos' | 'positivo' | 'sin_datos'
 
+export type PeriodoFlujo = 'dia' | 'semana' | 'mes'
+
 export interface FlujoResumen {
+  periodo: PeriodoFlujo
+  etiquetaPeriodo: string
   serie: FlujoSemana[]
   totalVentas: number
   costoMercaderia: number
@@ -212,7 +216,7 @@ export interface FlujoResumen {
   tieneGastosFijos: boolean
   /** Total de gastos fijos al mes (alquiler, luz, etc.), según la configuración del negocio. */
   gastoFijoMensual: number
-  /** Parte semanal de esos gastos fijos (mensual prorrateado), para no asustar con el monto del mes. */
+  /** Parte del periodo seleccionado. Se conserva el nombre por compatibilidad con vistas existentes. */
   gastoFijoSemanal: number
   comparacion: {
     ventas: number

@@ -41,6 +41,7 @@ import type {
   CompraInteligenteResumen,
   FlujoResumen,
   MedioPago,
+  PeriodoFlujo,
   Producto,
   Proveedor,
   TopProductoItem,
@@ -67,6 +68,12 @@ const PERIODOS: { value: PeriodoAbastecimiento; label: string }[] = [
   { value: '7d', label: '7 días' },
   { value: '30d', label: '30 días' },
   { value: '90d', label: '90 días' },
+]
+
+const PERIODOS_FLUJO: { value: PeriodoFlujo; label: string }[] = [
+  { value: 'dia', label: 'Hoy' },
+  { value: 'semana', label: 'Esta semana' },
+  { value: 'mes', label: 'Este mes' },
 ]
 
 function SelectorPeriodo({
@@ -306,11 +313,12 @@ function TabFlujo() {
   const [data, setData] = useState<FlujoResumen | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [periodo, setPeriodo] = useState<PeriodoFlujo>('semana')
 
   const cargar = useCallback(() => {
     setLoading(true)
     setError(false)
-    fetch('/api/mi-negocio/flujo')
+    fetch(`/api/mi-negocio/flujo?periodo=${periodo}`)
       .then((r) => {
         if (!r.ok) throw new Error('fetch flujo')
         return r.json()
@@ -318,7 +326,7 @@ function TabFlujo() {
       .then((d: FlujoResumen) => setData(d))
       .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [])
+  }, [periodo])
 
   useEffect(() => {
     cargar()
@@ -330,6 +338,22 @@ function TabFlujo() {
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {PERIODOS_FLUJO.map((p) => (
+          <button
+            key={p.value}
+            type="button"
+            onClick={() => setPeriodo(p.value)}
+            className={cn(
+              'min-h-[40px] whitespace-nowrap rounded-full border px-3 py-2 text-xs font-medium',
+              periodo === p.value ? 'bg-brand-dark text-white' : 'bg-background text-muted-foreground'
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       {/* Ventas − Costo de mercadería = Ganancia bruta */}
       <div className="grid grid-cols-3 items-stretch gap-2">
         <TarjetaCifra etiqueta="Ventas" monto={data.totalVentas} tono="venta" />
@@ -346,19 +370,19 @@ function TabFlujo() {
       <Card className="border-muted">
         <CardContent className="space-y-1 p-3 text-xs text-muted-foreground">
           <p>
-            <b>Ganancia bruta</b> = lo que te dejó la venta después de pagar la mercadería
+            <b>Ganancia bruta</b> = lo que te dejó la venta de {data.etiquetaPeriodo} después de pagar la mercadería
             ({formatSoles(data.costoMercaderia)}).
           </p>
           {data.tieneGastosFijos ? (
             <>
               <p>
-                <b>Ganancia neta</b> = lo que te quedó al final, después de tus gastos fijos
+                <b>Ganancia neta</b> = lo que te quedó al final de {data.etiquetaPeriodo}, después de tus gastos fijos
                 ({formatSoles(data.gastosFijos)}).
               </p>
               {data.gastoFijoMensual > 0 && (
                 <p>
                   Tus gastos fijos son <b>{formatSoles(data.gastoFijoMensual)} al mes</b>; los
-                  repartimos por semana (≈ {formatSoles(data.gastoFijoSemanal)}) para no asustarte con
+                  repartimos para {data.etiquetaPeriodo} (≈ {formatSoles(data.gastoFijoSemanal)}) para no asustarte con
                   el monto de un solo golpe.
                 </p>
               )}

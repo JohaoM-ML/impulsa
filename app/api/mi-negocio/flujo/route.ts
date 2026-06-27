@@ -6,12 +6,22 @@ import {
   resumenFinanciero,
   type VentaConCosto,
 } from '@/lib/finanzas'
-import type { MedioPago } from '@/types'
+import type { MedioPago, PeriodoFlujo } from '@/types'
 
-const SEMANAS = 8
-const MS_SEMANA = 7 * 24 * 60 * 60 * 1000
 // Días promedio de un mes, para prorratear gastos fijos mensuales a su parte semanal.
 const DIAS_MES = 30
+const LIMA_OFFSET_MS = -5 * 60 * 60 * 1000
+const BUCKETS_POR_PERIODO: Record<PeriodoFlujo, number> = {
+  dia: 14,
+  semana: 8,
+  mes: 6,
+}
+const ETIQUETA_PERIODO: Record<PeriodoFlujo, string> = {
+  dia: 'hoy',
+  semana: 'esta semana',
+  mes: 'este mes',
+}
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 // Los gastos fijos mensuales (alquiler, luz) se registran una sola vez con el
 // sufijo "(fijo)" en la descripción. No deben caer enteros en la semana en que
@@ -19,14 +29,113 @@ const DIAS_MES = 30
 const esGastoFijo = (descripcion?: string | null) =>
   (descripcion ?? '').toLowerCase().includes('(fijo)')
 
-export async function GET() {
+type BucketFlujo = {
+  label: string
+  inicio: number
+  fin: number
+  ventas: number
+  efectivo: number
+  yape: number
+  plin: number
+  tarjeta: number
+  costoMercaderia: number
+  gastosVariables: number
+}
+
+function periodoValido(value: string | null): PeriodoFlujo {
+  return value === 'dia' || value === 'semana' || value === 'mes' ? value : 'semana'
+}
+
+function fechaLima(ms = Date.now()) {
+  const d = new Date(ms + LIMA_OFFSET_MS)
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth(),
+    date: d.getUTCDate(),
+    day: d.getUTCDay(),
+  }
+}
+
+function limaStartMs(year: number, month: number, date: number): number {
+  return Date.UTC(year, month, date) - LIMA_OFFSET_MS
+}
+
+function inicioDiaLima(ms = Date.now()): number {
+  const d = fechaLima(ms)
+  return limaStartMs(d.year, d.month, d.date)
+}
+
+function inicioSemanaLima(ms = Date.now()): number {
+  const d = fechaLima(ms)
+  const diff = d.day === 0 ? 6 : d.day - 1
+  return limaStartMs(d.year, d.month, d.date - diff)
+}
+
+function inicioMesLima(ms = Date.now()): number {
+  const d = fechaLima(ms)
+  return limaStartMs(d.year, d.month, 1)
+}
+
+function sumarPeriodo(ms: number, periodo: PeriodoFlujo, cantidad: number): number {
+  const d = fechaLima(ms)
+  if (periodo === 'dia') return limaStartMs(d.year, d.month, d.date + cantidad)
+  if (periodo === 'semana') return limaStartMs(d.year, d.month, d.date + cantidad * 7)
+  return limaStartMs(d.year, d.month + cantidad, 1)
+}
+
+function inicioPeriodoActual(periodo: PeriodoFlujo): number {
+  if (periodo === 'dia') return inicioDiaLima()
+  if (periodo === 'semana') return inicioSemanaLima()
+  return inicioMesLima()
+}
+
+function etiquetaBucket(ms: number, periodo: PeriodoFlujo): string {
+  const d = fechaLima(ms)
+  if (periodo === 'mes') return MESES_CORTOS[d.month]
+  return `${d.date}/${d.month + 1}`
+}
+
+function gastoFijoDelPeriodo(gastoFijoMensual: number, periodo: PeriodoFlujo): number {
+  if (periodo === 'dia') return gastoFijoMensual / DIAS_MES
+  if (periodo === 'semana') return (gastoFijoMensual * 7) / DIAS_MES
+  return gastoFijoMensual
+}
+
+function construirBuckets(periodo: PeriodoFlujo): BucketFlujo[] {
+  const cantidad = BUCKETS_POR_PERIODO[periodo]
+  const inicioActual = inicioPeriodoActual(periodo)
+
+  return Array.from({ length: cantidad }, (_, i) => {
+    const inicio = sumarPeriodo(inicioActual, periodo, i - cantidad + 1)
+    const fin = sumarPeriodo(inicio, periodo, 1)
+    return {
+      label: etiquetaBucket(inicio, periodo),
+      inicio,
+      fin,
+      ventas: 0,
+      efectivo: 0,
+      yape: 0,
+      plin: 0,
+      tarjeta: 0,
+      costoMercaderia: 0,
+      // Gastos variables / puntuales del bucket. Los gastos fijos se prorratean abajo.
+      gastosVariables: 0,
+    }
+  })
+}
+
+const r2 = (n: number) => Math.round(n * 100) / 100
+
+export async function GET(request: Request) {
   try {
     const { supabase, negocio, error } = await getNegocioFromSession()
     if (error || !negocio) {
       return NextResponse.json({ error: error ?? 'Negocio no encontrado' }, { status: error === 'No autorizado' ? 401 : 404 })
     }
 
-    const desde = new Date(Date.now() - SEMANAS * MS_SEMANA).toISOString()
+    const periodo = periodoValido(new URL(request.url).searchParams.get('periodo'))
+    const buckets = construirBuckets(periodo)
+    const desde = new Date(buckets[0]?.inicio ?? inicioPeriodoActual(periodo)).toISOString()
 
     const [{ data: ventas }, { data: gastos }, { data: gastosFijosCfg }] = await Promise.all([
       supabase
@@ -60,37 +169,14 @@ export async function GET() {
     }[]
     const gastosFijosArr = (gastosFijosCfg ?? []) as { monto: number }[]
 
-    // Compromiso mensual de gastos fijos (alquiler, luz, sueldos…) y su parte
-    // semanal. Mostramos la parte semanal en lugar del golpe mensual completo
-    // para no asustar al dueño: el alquiler del mes no "salió" todo en una semana.
+    // Compromiso mensual de gastos fijos (alquiler, luz, sueldos...) y su parte
+    // del periodo seleccionado para que el alquiler no caiga entero en un solo dia.
     const gastoFijoMensual = gastosFijosArr.reduce((s, g) => s + Number(g.monto), 0)
-    const gastoFijoSemanal = (gastoFijoMensual * 7) / DIAS_MES
-
-    // Buckets semanales terminando en la semana actual.
-    const ahora = Date.now()
-    const buckets = Array.from({ length: SEMANAS }, (_, i) => {
-      const finBucket = ahora - (SEMANAS - 1 - i) * MS_SEMANA
-      const inicioBucket = finBucket - MS_SEMANA
-      const d = new Date(finBucket)
-      return {
-        label: `${d.getDate()}/${d.getMonth() + 1}`,
-        inicio: inicioBucket,
-        fin: finBucket,
-        ventas: 0,
-        efectivo: 0,
-        yape: 0,
-        plin: 0,
-        tarjeta: 0,
-        costoMercaderia: 0,
-        // Gastos variables / puntuales de esa semana (compras, arreglos).
-        // Los gastos fijos NO se bucketean aquí: se prorratean (ver serie).
-        gastosVariables: 0,
-      }
-    })
+    const gastoFijoPeriodo = gastoFijoDelPeriodo(gastoFijoMensual, periodo)
 
     const bucketDe = (fechaISO: string) => {
       const t = new Date(fechaISO).getTime()
-      return buckets.find((bk) => t > bk.inicio && t <= bk.fin)
+      return buckets.find((bk) => t >= bk.inicio && t < bk.fin)
     }
 
     for (const v of ventasArr) {
@@ -105,22 +191,18 @@ export async function GET() {
         b.costoMercaderia += costoDeVenta(v)
       }
     }
-    // Solo los gastos variables / puntuales caen en la semana en que se hicieron.
-    // Los gastos fijos mensuales ("(fijo)") se prorratean por semana más abajo,
-    // para que el alquiler del mes no aparezca como una pérdida de una sola semana.
+    // Solo los gastos variables / puntuales caen en el periodo en que se hicieron.
+    // Los gastos fijos mensuales ("(fijo)") se prorratean mas abajo.
     for (const g of gastosArr) {
       if (esGastoFijo(g.descripcion)) continue
       const b = bucketDe(g.creado_en)
       if (b) b.gastosVariables += Number(g.monto)
     }
 
-    const r2 = (n: number) => Math.round(n * 100) / 100
-
     const serie = buckets.map((b) => {
       const bruta = b.ventas - b.costoMercaderia
-      // Gastos de la semana = parte semanal de los fijos del mes + gastos puntuales.
-      const gastosSemana = gastoFijoSemanal + b.gastosVariables
-      const neta = bruta - gastosSemana
+      const gastosPeriodo = gastoFijoPeriodo + b.gastosVariables
+      const neta = bruta - gastosPeriodo
       return {
         semana: b.label,
         ventas: r2(b.ventas),
@@ -130,49 +212,33 @@ export async function GET() {
         tarjeta: r2(b.tarjeta),
         costoMercaderia: r2(b.costoMercaderia),
         gananciaBruta: r2(bruta),
-        gastosFijos: r2(gastosSemana),
+        gastosFijos: r2(gastosPeriodo),
         gananciaNeta: r2(neta),
-        // Total de salidas de la semana (para el gráfico Ventas vs Gastos).
-        gastos: r2(b.costoMercaderia + gastosSemana),
+        // Total de salidas del periodo (para el grafico Ventas vs Gastos).
+        gastos: r2(b.costoMercaderia + gastosPeriodo),
       }
     })
 
-    const totalVentas = ventasArr.reduce((s, v) => s + Number(v.total), 0)
-    const porMedioPago = ventasArr.reduce<Record<MedioPago, number>>(
-      (acc, v) => {
-        const medio = v.medio_pago ?? 'efectivo'
-        if (medio === 'yape' || medio === 'plin' || medio === 'tarjeta' || medio === 'efectivo') {
-          acc[medio] += Number(v.total)
-        }
-        return acc
-      },
-      { efectivo: 0, yape: 0, plin: 0, tarjeta: 0 }
-    )
-    const totalCosto = ventasArr.reduce((s, v) => s + costoDeVenta(v), 0)
-    // Gastos del periodo = fijos prorrateados a lo largo de la ventana + gastos puntuales.
-    const totalGastosVariables = gastosArr
-      .filter((g) => !esGastoFijo(g.descripcion))
-      .reduce((s, g) => s + Number(g.monto), 0)
-    const totalGastosFijos = gastoFijoSemanal * SEMANAS + totalGastosVariables
+    const periodoActual = serie[serie.length - 1]
+    const periodoAnterior = serie[serie.length - 2]
 
     const resumen = resumenFinanciero({
-      totalVentas,
-      costoMercaderia: totalCosto,
-      gastosFijos: totalGastosFijos,
+      totalVentas: periodoActual?.ventas ?? 0,
+      costoMercaderia: periodoActual?.costoMercaderia ?? 0,
+      gastosFijos: periodoActual?.gastosFijos ?? 0,
     })
 
-    // Comparación de la última semana cerrada vs la anterior (para niveles 1-2).
-    const semActual = serie[serie.length - 1]
-    const semAnterior = serie[serie.length - 2]
     const comparacion = {
-      ventas: semActual?.ventas ?? 0,
-      gastos: semActual?.gastos ?? 0,
-      ganancia: semActual?.gananciaNeta ?? 0,
-      gananciaAnterior: semAnterior?.gananciaNeta ?? 0,
-      delta: r2((semActual?.gananciaNeta ?? 0) - (semAnterior?.gananciaNeta ?? 0)),
+      ventas: periodoActual?.ventas ?? 0,
+      gastos: periodoActual?.gastos ?? 0,
+      ganancia: periodoActual?.gananciaNeta ?? 0,
+      gananciaAnterior: periodoAnterior?.gananciaNeta ?? 0,
+      delta: r2((periodoActual?.gananciaNeta ?? 0) - (periodoAnterior?.gananciaNeta ?? 0)),
     }
 
     return NextResponse.json({
+      periodo,
+      etiquetaPeriodo: ETIQUETA_PERIODO[periodo],
       serie,
       totalVentas: r2(resumen.ventas),
       costoMercaderia: r2(resumen.costoMercaderia),
@@ -180,19 +246,19 @@ export async function GET() {
       gastosFijos: r2(resumen.gastosFijos),
       gananciaNeta: r2(resumen.gananciaNeta),
       diagnostico: diagnosticarFlujo(resumen),
-      tieneGastosFijos: (gastosFijosArr.length ?? 0) > 0 || totalGastosVariables > 0,
+      tieneGastosFijos: gastosFijosArr.length > 0 || (periodoActual?.gastosFijos ?? 0) > 0,
       gastoFijoMensual: r2(gastoFijoMensual),
-      gastoFijoSemanal: r2(gastoFijoSemanal),
+      gastoFijoSemanal: r2(gastoFijoPeriodo),
       comparacion,
       // Compatibilidad con clientes anteriores.
       totalGastos: r2(resumen.costoMercaderia + resumen.gastosFijos),
       totalCosto: r2(resumen.costoMercaderia),
       totalGastosRegistrados: r2(resumen.gastosFijos),
       porMedioPago: {
-        efectivo: r2(porMedioPago.efectivo),
-        yape: r2(porMedioPago.yape),
-        plin: r2(porMedioPago.plin),
-        tarjeta: r2(porMedioPago.tarjeta),
+        efectivo: r2(periodoActual?.efectivo ?? 0),
+        yape: r2(periodoActual?.yape ?? 0),
+        plin: r2(periodoActual?.plin ?? 0),
+        tarjeta: r2(periodoActual?.tarjeta ?? 0),
       },
     })
   } catch (err) {

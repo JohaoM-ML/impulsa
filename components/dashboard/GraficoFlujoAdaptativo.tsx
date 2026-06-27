@@ -16,7 +16,7 @@ import {
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatSoles, cn } from '@/lib/utils'
-import type { FlujoResumen, FlujoSemana, Nivel } from '@/types'
+import type { FlujoResumen, FlujoSemana, Nivel, PeriodoFlujo } from '@/types'
 
 interface Props {
   nivel: Nivel
@@ -26,6 +26,39 @@ interface Props {
 const ventaColor = 'hsl(153 69% 39%)'
 const gastoColor = 'hsl(0 84% 60%)'
 const gananciaColor = 'hsl(217 91% 60%)'
+
+const COPY_PERIODO: Record<
+  PeriodoFlujo,
+  {
+    actual: string
+    actualCapital: string
+    anterior: string
+    gastoNegativo: string
+    panel: string
+  }
+> = {
+  dia: {
+    actual: 'hoy',
+    actualCapital: 'Hoy',
+    anterior: 'ayer',
+    gastoNegativo: 'Hoy gastaste más de lo que vendiste.',
+    panel: 'Panel financiero de hoy',
+  },
+  semana: {
+    actual: 'esta semana',
+    actualCapital: 'Esta semana',
+    anterior: 'la semana pasada',
+    gastoNegativo: 'Esta semana gastaste más de lo que vendiste.',
+    panel: 'Panel financiero semanal',
+  },
+  mes: {
+    actual: 'este mes',
+    actualCapital: 'Este mes',
+    anterior: 'el mes pasado',
+    gastoNegativo: 'Este mes gastaste más de lo que vendiste.',
+    panel: 'Panel financiero mensual',
+  },
+}
 
 function ultimaSemana(serie: FlujoSemana[]): FlujoSemana {
   return serie[serie.length - 1] ?? {
@@ -73,14 +106,15 @@ function BarraSimple({ label, monto, max, tono }: { label: string; monto: number
 }
 
 // Nota que aclara que los gastos fijos del mes (alquiler, luz) se muestran
-// repartidos por semana, no como un golpe que "salió" todo de una vez.
+// repartidos por periodo, no como un golpe que "salió" todo de una vez.
 function NotaGastoFijo({ data }: { data: FlujoResumen }) {
   if (!data.gastoFijoMensual || data.gastoFijoMensual <= 0) return null
+  const copy = COPY_PERIODO[data.periodo]
   return (
     <p className="rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground">
       💡 Tu alquiler, luz y demás gastos fijos son <b>{formatSoles(data.gastoFijoMensual)} al mes</b>.
-      Aquí repartimos solo la parte de la semana (≈ {formatSoles(data.gastoFijoSemanal)}), porque
-      eso se paga una vez al mes, no de golpe esta semana.
+      Aquí repartimos solo la parte de {copy.actual} (≈ {formatSoles(data.gastoFijoSemanal)}), porque
+      eso se paga una vez al mes, no de golpe.
     </p>
   )
 }
@@ -90,12 +124,13 @@ function GraficoNivel1({ data }: { data: FlujoResumen }) {
   const quedo = semana.ventas - semana.gastos
   const max = Math.max(semana.ventas, semana.gastos)
   const mejor = data.comparacion.delta >= 0
+  const copy = COPY_PERIODO[data.periodo]
 
   return (
     <Card>
       <CardContent className="space-y-4 p-4">
         <div>
-          <p className="font-semibold text-brand-dark">¿Cómo te fue esta semana?</p>
+          <p className="font-semibold text-brand-dark">¿Cómo te fue {copy.actual}?</p>
           <p className="text-sm text-muted-foreground">Mira cuánto entró, cuánto salió y cuánto te quedó.</p>
         </div>
         <div className="rounded-2xl bg-brand-tint p-4 text-center">
@@ -104,7 +139,7 @@ function GraficoNivel1({ data }: { data: FlujoResumen }) {
             {formatSoles(quedo)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {quedo >= 0 ? 'Vas bien, cuida tus gastos.' : 'Esta semana gastaste más de lo que vendiste.'}
+            {quedo >= 0 ? 'Vas bien, cuida tus gastos.' : copy.gastoNegativo}
           </p>
         </div>
         <BarraSimple label="Entró por ventas" monto={semana.ventas} max={max} tono="venta" />
@@ -112,7 +147,7 @@ function GraficoNivel1({ data }: { data: FlujoResumen }) {
         <NotaGastoFijo data={data} />
         <p className={cn('flex items-center gap-1 text-sm font-medium', mejor ? 'text-primary' : 'text-destructive')}>
           {mejor ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-          {mejor ? 'Mejor que la semana pasada' : 'Más bajo que la semana pasada'}
+          {mejor ? `Mejor que ${copy.anterior}` : `Más bajo que ${copy.anterior}`}
         </p>
       </CardContent>
     </Card>
@@ -121,13 +156,16 @@ function GraficoNivel1({ data }: { data: FlujoResumen }) {
 
 function GraficoNivel2({ data }: { data: FlujoResumen }) {
   const mejor = data.comparacion.delta >= 0
+  const copy = COPY_PERIODO[data.periodo]
   return (
     <Card>
       <CardContent className="space-y-3 p-4">
         <div>
           <p className="font-semibold text-brand-dark">Ventas y gastos</p>
           <p className="text-sm text-muted-foreground">
-            {mejor ? 'Esta semana te fue mejor que la anterior.' : 'Esta semana te quedó menos que la anterior.'}
+            {mejor
+              ? `${copy.actualCapital} te fue mejor que ${copy.anterior}.`
+              : `${copy.actualCapital} te quedó menos que ${copy.anterior}.`}
           </p>
         </div>
         <div className="h-44">
@@ -149,13 +187,14 @@ function GraficoNivel2({ data }: { data: FlujoResumen }) {
   )
 }
 
-// Nota técnica para niveles altos: los costos fijos se prorratean por semana.
+// Nota técnica para niveles altos: los costos fijos se prorratean por periodo.
 function NotaGastoFijoTecnica({ data }: { data: FlujoResumen }) {
   if (!data.gastoFijoMensual || data.gastoFijoMensual <= 0) return null
+  const copy = COPY_PERIODO[data.periodo]
   return (
     <p className="mt-3 rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground">
-      Tus costos fijos ({formatSoles(data.gastoFijoMensual)}/mes) se prorratean por semana
-      (≈ {formatSoles(data.gastoFijoSemanal)}) para no distorsionar el resultado de una semana puntual.
+      Tus costos fijos ({formatSoles(data.gastoFijoMensual)}/mes) se prorratean para {copy.actual}
+      (≈ {formatSoles(data.gastoFijoSemanal)}) para no distorsionar el resultado del periodo.
     </p>
   )
 }
@@ -188,12 +227,13 @@ function GraficoNivel3({ data }: { data: FlujoResumen }) {
 function GraficoNivel4({ data }: { data: FlujoResumen }) {
   const margen = data.totalVentas > 0 ? (data.gananciaNeta / data.totalVentas) * 100 : 0
   const proyeccion = proyeccionSimple(data.serie)
+  const copy = COPY_PERIODO[data.periodo]
   return (
     <Card>
       <CardContent className="p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="font-semibold text-brand-dark">Panel financiero semanal</p>
+            <p className="font-semibold text-brand-dark">{copy.panel}</p>
             <p className="text-sm text-muted-foreground">Ventas, gastos, ganancia neta y tendencia.</p>
           </div>
           <div className="text-right text-xs text-muted-foreground">

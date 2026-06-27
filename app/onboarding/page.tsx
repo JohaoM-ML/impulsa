@@ -176,7 +176,27 @@ export default function OnboardingPage() {
     )
   }
 
-  if (enviando) return <EstadoCargando mensaje="Analizando tus respuestas con IA..." />
+  if (enviando) {
+    return (
+      <div className="min-h-[100dvh] bg-brand-tint">
+        <div className="mx-auto flex min-h-[100dvh] max-w-[390px] flex-col items-center justify-center gap-6 bg-background p-6 text-center">
+          <div className="relative flex h-28 w-28 items-center justify-center">
+            <span className="absolute inset-0 animate-spin rounded-full border-4 border-primary/15 border-t-primary [animation-duration:1.1s]" />
+            <span className="absolute inset-3 animate-spin rounded-full border-4 border-primary/10 border-b-primary/60 [animation-direction:reverse] [animation-duration:1.6s]" />
+            <Sparkles className="h-9 w-9 animate-pulse text-primary" />
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-lg font-semibold text-foreground">
+              Orientando la aplicación para ti
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Estamos adaptando el lenguaje y las funciones a tu negocio.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-[100dvh] bg-brand-tint">

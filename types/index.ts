@@ -104,6 +104,7 @@ export interface ProgresoUsuario {
   nivel: number
   xp_total: number
   onboarding_completado: boolean
+  tutorial_visto: boolean
   ultimo_acceso?: string | null
   creado_en: string
 }

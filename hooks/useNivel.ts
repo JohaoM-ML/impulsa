@@ -70,5 +70,6 @@ export function useNivel() {
     error,
     recargar: cargar,
     onboardingCompletado: progreso?.onboarding_completado ?? false,
+    tutorialVisto: progreso?.tutorial_visto ?? true,
   }
 }

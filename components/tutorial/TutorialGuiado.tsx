@@ -4,8 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-
-const STORAGE_KEY = 'impulsa_tutorial_visto'
+import { notificarCambioNivel, useNivel } from '@/hooks/useNivel'
 
 interface PasoTutorial {
   target?: string
@@ -56,6 +55,7 @@ export function TutorialGuiado() {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { loading, onboardingCompletado, tutorialVisto } = useNivel()
 
   const [montado, setMontado] = useState(false)
   const [activo, setActivo] = useState(false)
@@ -66,19 +66,18 @@ export function TutorialGuiado() {
     setMontado(true)
   }, [])
 
-  // Arranca con ?tour=1 (post-onboarding) o la primera vez que entra a /inicio.
+  // Solo usuarios nuevos: tutorial_visto=false en BD tras completar el onboarding.
   useEffect(() => {
-    if (!montado || pathname !== '/inicio') return
-    const yaVisto = window.localStorage.getItem(STORAGE_KEY) === '1'
-    const forzar = searchParams.get('tour') === '1'
-    if (forzar || !yaVisto) {
-      setPaso(0)
-      setActivo(true)
-    }
-    if (forzar) {
+    if (!montado || loading || pathname !== '/inicio') return
+    if (!onboardingCompletado || tutorialVisto) return
+
+    setPaso(0)
+    setActivo(true)
+
+    if (searchParams.get('tour') === '1') {
       router.replace('/inicio')
     }
-  }, [montado, pathname, searchParams, router])
+  }, [montado, loading, pathname, onboardingCompletado, tutorialVisto, searchParams, router])
 
   const pasoActual = PASOS[paso]
 
@@ -107,16 +106,25 @@ export function TutorialGuiado() {
     }
   }, [activo, recalcular])
 
-  function cerrar() {
-    window.localStorage.setItem(STORAGE_KEY, '1')
+  async function cerrar() {
     setActivo(false)
+    try {
+      await fetch('/api/nivel', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tutorial_visto: true }),
+      })
+      notificarCambioNivel()
+    } catch {
+      // Si falla el guardado, no reabrimos el tour en esta sesión.
+    }
   }
 
   function siguiente() {
     if (paso < PASOS.length - 1) {
       setPaso((p) => p + 1)
     } else {
-      cerrar()
+      void cerrar()
     }
   }
 
@@ -174,7 +182,7 @@ export function TutorialGuiado() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={cerrar}
+              onClick={() => void cerrar()}
               className="text-xs font-medium text-muted-foreground hover:underline"
             >
               Omitir

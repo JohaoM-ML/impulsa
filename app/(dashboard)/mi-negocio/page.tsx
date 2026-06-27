@@ -150,26 +150,26 @@ function TabFlujo() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 items-stretch gap-2">
-        <Card>
+        <Card className="min-w-0">
           <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
             <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">Ventas</p>
-            <p className="whitespace-nowrap text-[15px] font-bold tracking-tight tabular-nums text-primary">
+            <p className="whitespace-nowrap text-[13px] font-bold leading-tight tracking-tight tabular-nums text-primary">
               {formatSoles(data.totalVentas)}
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
             <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">{cap(vocab('gasto'))}</p>
-            <p className="whitespace-nowrap text-[15px] font-bold tracking-tight tabular-nums text-destructive">
+            <p className="whitespace-nowrap text-[13px] font-bold leading-tight tracking-tight tabular-nums text-destructive">
               {formatSoles(data.totalGastos)}
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <CardContent className="flex h-full flex-col justify-between gap-1 p-2.5">
             <p className="min-h-[2.2em] text-[11px] uppercase leading-tight text-muted-foreground">{cap(vocab('ganancia'))}</p>
-            <p className={cn('whitespace-nowrap text-[15px] font-bold tracking-tight tabular-nums', ganancia >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+            <p className={cn('whitespace-nowrap text-[13px] font-bold leading-tight tracking-tight tabular-nums', ganancia >= 0 ? 'text-emerald-600' : 'text-destructive')}>
               {formatSoles(ganancia)}
             </p>
           </CardContent>

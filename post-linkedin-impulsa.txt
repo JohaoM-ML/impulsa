@@ -1,0 +1,29 @@
+🏆 Ganamos el IDEATECH PYME Hackathon
+
+El 26 y 27 de junio participé en el IDEATECH PYME Hackathon, organizado por el Centro de Desarrollo Emprendedor de ESAN, la ONG CESAL y la OIM (Organización Internacional para las Migraciones).
+
+Fui junto a mis compañeras [nombre] y [nombre], las mismas con las que el año pasado ganamos la hackathon de la Universidad del Pacífico. Repetir el resultado, con otro reto y otro equipo organizador, hace que este logro se sienta aún más nuestro. Coincidimos con gente de distintas edades, países y universidades, y ese entorno nos exigió dar lo mejor de cada una.
+
+Así nació Impulsa.
+
+El problema: los bodegueros y las mypes informales del Perú llevan sus cuentas en la cabeza o en un cuaderno. No descargan apps, no tienen tiempo para tutoriales y el lenguaje financiero los deja afuera. Cualquier solución que les exija aprender algo nuevo, fracasa.
+
+Nuestra apuesta: un asesor que vive donde el bodeguero ya está → WhatsApp, con una PWA web igual de completa. Doble canal, mismos datos.
+
+Cómo funciona por dentro:
+
+🎙️ Voz (Whisper): no escribe, habla. "Vendí 40 soles de gaseosas y pagué 15 al proveedor"… y listo.
+
+🧾 Fotos leídas por Claude: le saca foto a su Yape y el mismo LLM reconoce el comprobante y lee el monto; luego le pide una nota de voz para saber a qué corresponde. Dos gestos que ya hace a diario, y la venta queda registrada.
+
+🧠 Claude como asesor, no chatbot: detecta la intención, adapta su vocabulario al nivel del usuario (de "cuánto ganaste hoy" a "margen de contribución") y siempre pide confirmación antes de guardar. Cuando manejas la plata de alguien, la confianza lo es todo.
+
+⚙️ n8n + Supabase (Postgres): n8n solo transporta el mensaje; toda la lógica vive en nuestra API. Y como WhatsApp no tiene memoria entre mensajes, construimos una capa de contexto propia para sostener conversaciones de varios turnos.
+
+📊 Con cada registro calculamos un PymScore y vamos armando, sin esfuerzo extra del dueño, un historial financiero que mañana puede ser su puente hacia un crédito.
+
+Salimos a buscar desafíos y nos llevamos mucho más que un premio: la certeza de que la tecnología bien pensada puede llegar a quienes históricamente quedan fuera de ella.
+
+Gracias a ESAN, CESAL y la OIM por el espacio, y a mi equipo por el esfuerzo. Esto recién empieza. 🚀
+
+#Hackathon #Fintech #Pymes #IA #Emprendimiento #Perú
